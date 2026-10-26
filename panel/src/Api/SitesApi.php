@@ -16,6 +16,9 @@ final class SitesApi extends Api
     /** Impostazioni del blog modificabili via API. */
     private const BLOG_FIELDS = ['index_path', 'index_title', 'per_page', 'permalink', 'category_path'];
 
+    /** Categorie di cookie che richiedono consenso (i tecnici sono sempre ammessi). */
+    public const COOKIE_CATEGORIES = ['statistics', 'marketing'];
+
     /** Moduli attivabili per sito. */
     private const MODULES = ['forms', 'cookies', 'blog'];
 
@@ -108,6 +111,9 @@ final class SitesApi extends Api
                 default => (string) $v,
             };
         }
+        if (array_key_exists('cookies', $in)) {
+            $config['cookies'] = $this->validCookies($in['cookies'], $config['cookies'] ?? [], $errors);
+        }
         if (isset($config['blog']['permalink']) && !str_contains($config['blog']['permalink'], '{slug}')) {
             $errors['blog.permalink'] = 'Deve contenere {slug}';
         }
@@ -179,6 +185,62 @@ final class SitesApi extends Api
         return $current;
     }
 
+    /**
+     * Banner cookie: aggiorna solo le chiavi inviate.
+     * "reset_consent": true incrementa la versione, così il banner ricompare a tutti i visitatori.
+     */
+    private function validCookies(mixed $in, array $current, array &$errors): array
+    {
+        if (!is_array($in)) {
+            $errors['cookies'] = 'Oggetto: policy_url, categories, text, color, reset_consent';
+            return $current;
+        }
+        if (array_key_exists('policy_url', $in)) {
+            $url = trim((string) $in['policy_url']);
+            if ($url !== '' && !preg_match('~^(/|https?://)\S*$~', $url)) {
+                $errors['cookies.policy_url'] = 'Percorso (/cookie-policy/) o indirizzo completo';
+            }
+            $current['policy_url'] = $url;
+        }
+        if (array_key_exists('categories', $in)) {
+            $list = is_array($in['categories']) ? array_values(array_unique($in['categories'])) : null;
+            if ($list === null || array_diff($list, self::COOKIE_CATEGORIES)) {
+                $errors['cookies.categories'] = 'Lista con valori ' . implode(', ', self::COOKIE_CATEGORIES);
+            } else {
+                $current['categories'] = $list;
+            }
+        }
+        if (array_key_exists('text', $in)) {
+            $current['text'] = trim(strip_tags((string) $in['text']));
+            if (mb_strlen($current['text']) > 600) {
+                $errors['cookies.text'] = 'Massimo 600 caratteri';
+            }
+        }
+        if (array_key_exists('color', $in)) {
+            $current['color'] = trim((string) $in['color']);
+            if ($current['color'] !== '' && !preg_match('~^#[0-9a-f]{6}$~i', $current['color'])) {
+                $errors['cookies.color'] = 'Colore esadecimale, es. #1d4ed8';
+            }
+        }
+        if (!empty($in['reset_consent'])) {
+            $current['version'] = ($current['version'] ?? 1) + 1;
+        }
+        return $current;
+    }
+
+    /** Impostazioni del banner cookie con i valori predefiniti. */
+    public static function cookieSettings(array $site): array
+    {
+        $c = $site['config']['cookies'] ?? [];
+        return [
+            'policy_url' => ($c['policy_url'] ?? '') !== '' ? $c['policy_url'] : '/cookie-policy/',
+            'categories' => $c['categories'] ?? [],
+            'text'       => $c['text'] ?? '',
+            'color'      => $c['color'] ?? '',
+            'version'    => $c['version'] ?? 1,
+        ];
+    }
+
     /** Domini extra da cui i form sono accettati (es. anteprime Coolify). Il dominio del sito è sempre ammesso. */
     private function validOrigins(mixed $in, array &$errors): array
     {
@@ -224,6 +286,7 @@ final class SitesApi extends Api
             'embed'        => ['script_url' => Embed::scriptUrl($site['public_key']), 'snippet' => Embed::snippet($site['public_key'])],
             'modules'      => $site['modules'],
             'origins'      => $site['origins'],
+            'cookies'      => self::cookieSettings($site),
             'blog'         => array_intersect_key($site['config']['blog'] ?? [], array_flip(self::BLOG_FIELDS)) ?: null,
             'imported'     => !empty($site['templates']),
             'submissions'  => $this->store->submissionStats($site['id']),

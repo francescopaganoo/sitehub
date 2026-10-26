@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Panel;
 
+use Panel\Api\SitesApi;
 use Panel\Forms\FormService;
 use Panel\Http\ApiError;
 use Panel\Http\Request;
@@ -20,7 +21,7 @@ final class Embed
     public const VERSION = 'v1';
 
     /** Moduli JS: file in panel/assets/embed/, inclusi solo se attivi sul sito. */
-    private const MODULES = ['forms' => 'forms.js'];
+    private const MODULES = ['forms' => 'forms.js', 'cookies' => 'cookies.js'];
 
     public function __construct(private Store $store, private FormService $forms)
     {
@@ -64,6 +65,9 @@ final class Embed
             'submitUrl' => self::baseUrl() . '/e/' . self::VERSION . "/$key/submit",
             'modules'   => $modules,
         ];
+        if (!empty($modules['cookies'])) {
+            $config['cookies'] = SitesApi::cookieSettings($site);
+        }
 
         $js = "/* pannello embed " . self::VERSION . " - {$site['slug']} */\n(function (SSG) {\n'use strict';\n";
         foreach (self::MODULES as $name => $file) {

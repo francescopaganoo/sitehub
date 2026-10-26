@@ -75,6 +75,52 @@ document.querySelector('form[data-ssg-form="contatti"]')
 - campi `type="password"`: vengono ignorati;
 - servizi esterni per i form (Formspree, Google Forms…) sui siti gestiti dal pannello.
 
-## 3. Domini di prova
+## 3. Cookie e script che tracciano
+
+Con il modulo "Banner cookie" attivo, SiteHub mostra il banner di consenso e fa partire gli script che tracciano solo dopo il consenso.
+Il banner compare **solo se il sito usa cookie che richiedono consenso**. Un sito con soli cookie tecnici non mostra niente.
+
+**Script che tracciano** (Google Analytics, Meta Pixel, Hotjar…): stesso codice di sempre, ma con `type="text/plain"` e la categoria in `data-ssg-consent`:
+
+```html
+<script type="text/plain" data-ssg-consent="statistics" src="https://www.googletagmanager.com/gtag/js?id=G-XXXX" async></script>
+<script type="text/plain" data-ssg-consent="statistics">
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-XXXX');
+</script>
+```
+
+Categorie: `statistics` (statistiche, analytics) e `marketing` (pubblicità, pixel, remarketing).
+
+**Mappe, video e altri contenuti esterni** (Google Maps, YouTube): `data-ssg-src` al posto di `src`, più la categoria. Finché manca il consenso, al loro posto compare un avviso con il pulsante "Consenti e mostra".
+
+```html
+<iframe data-ssg-consent="marketing" data-ssg-src="https://www.google.com/maps/embed?pb=…" width="600" height="400" style="border:0" loading="lazy"></iframe>
+```
+
+**Link per cambiare le preferenze** (obbligatorio se il sito usa cookie non tecnici), di solito nel footer:
+
+```html
+<a href="#cookie-settings">Preferenze cookie</a>
+```
+
+Va bene anche qualunque elemento con `data-ssg-cookie-settings`.
+
+**Cosa fa il modulo da solo:**
+- pulsanti "Rifiuta", "Personalizza", "Accetta tutti" con lo stesso peso; la X chiude rifiutando;
+- ricorda la scelta per 6 mesi; dal pannello si può chiedere di nuovo il consenso a tutti;
+- se il visitatore revoca un consenso, cancella i cookie dei tracker noti e ricarica la pagina;
+- se il sito usa `gtag`, aggiorna Google Consent Mode v2; invia l'evento `ssg:consent` sul `document`;
+- banner isolato dallo stile del sito (shadow DOM). Per usare il font del sito: `:root { --ssg-font: "Montserrat", sans-serif; }`.
+
+Nel pannello si impostano il link alla cookie policy (predefinito `/cookie-policy/`), il colore dei pulsanti, un testo personalizzato e le categorie da chiedere anche se non compaiono nella pagina, per esempio quelle usate da un Google Tag Manager.
+
+**Da evitare:**
+- script che tracciano scritti normalmente, senza `type="text/plain"`: partono prima del consenso;
+- altri banner cookie (Iubenda, Cookiebot, plugin) insieme a questo.
+
+## 4. Domini di prova
 
 I form sono accettati solo dal dominio del sito, con e senza `www`. Per provare il sito su un altro indirizzo, per esempio l'anteprima di Coolify o uno staging, aggiungete quel dominio nel pannello alla voce `origins` del sito.
