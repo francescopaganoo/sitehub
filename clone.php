@@ -47,7 +47,8 @@ $out = $opt['out'][0] ?? __DIR__ . '/sites/' . $slug;
 
 if (is_dir("$out/public")) {
     // ogni clone parte pulito: i file obsoleti non devono restare nel repo del sito
-    exec('rm -rf ' . escapeshellarg("$out/public"));
+    // si svuota senza cancellare la cartella: un server di anteprima che la serve resta valido
+    exec('find ' . escapeshellarg("$out/public") . ' -mindepth 1 -delete');
 }
 
 $report = (new Cloner([

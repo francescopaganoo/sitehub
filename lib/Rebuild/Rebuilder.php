@@ -45,7 +45,8 @@ final class Rebuilder
         $this->renderer = new Renderer($this->theme);
 
         if (is_dir("{$this->out}/public")) {
-            exec('rm -rf ' . escapeshellarg("{$this->out}/public") . ' ' . escapeshellarg("{$this->out}/templates"));
+            // si svuota senza cancellare la cartella: un server di anteprima che la serve resta valido
+            exec('find ' . escapeshellarg("{$this->out}/public") . ' -mindepth 1 -delete; rm -rf ' . escapeshellarg("{$this->out}/templates"));
         }
 
         $home = $this->load('/');
