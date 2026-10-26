@@ -48,6 +48,7 @@ final class Cloner
     private array $aliases = [];
     private array $textFiles = [];
     private ?array $blog = null;
+    private array $structure = [];
     private string $siteName = '';
     private ?string $timezone = null;
 
@@ -106,6 +107,8 @@ final class Cloner
         if ($blog) {
             $this->writeBlog($blog);
         }
+        // per ultima: lavora sui file finali di pagine, template e articoli
+        $this->structure = (new Restructure(dirname($this->public), fn($m) => $this->log($m)))->run();
         $report = $this->report(microtime(true) - $started);
         file_put_contents(dirname($this->public) . '/site.json',
             json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
@@ -278,7 +281,8 @@ final class Cloner
             }
         }
         foreach ($doc->querySelectorAll('script:not([src])') as $s) {
-            if (str_contains($s->textContent, '_wpemojiSettings')) {
+            // emoji di WordPress, script anti-bot che Cloudflare inietta nelle pagine
+            if (str_contains($s->textContent, '_wpemojiSettings') || str_contains($s->textContent, '/cdn-cgi/challenge-platform')) {
                 $s->remove();
             }
         }
@@ -509,6 +513,12 @@ final class Cloner
             if (str_contains(basename($clean), 'runtime')) {
                 $this->discoverWebpackChunks($body, $clean);
             }
+            // file che Elementor carica da solo (dialog, share-link, CSS della lightbox…)
+            if (preg_match('~/assets/js/[^/]+\.js$~', $clean)) {
+                foreach (Restructure::loaderPaths($body) as $p) {
+                    $this->enqueueAsset(dirname($clean, 2) . '/' . $p);
+                }
+            }
         }
 
         $this->write(rawurldecode($this->aliases[$clean] ?? $clean), $body);
@@ -647,11 +657,13 @@ final class Cloner
                 'assets'  => count($this->seenAssets),
                 'mb'      => round($this->bytes / 1048576, 1),
                 'seconds' => round($seconds),
-            ],
+            ] + $this->structure,
             'pages'         => $this->pages,
             'forms'         => array_values($this->forms),
             'cookies'       => $this->consent->report(),
             'blog'          => $this->blog,
+            // vecchi percorsi WordPress → nuovi: servono per i redirect sul server (link esterni, Google Immagini)
+            'moved_paths'   => Restructure::PREFIXES,
             'redirects'     => $this->redirects,
             'external'      => array_keys($this->external),
             'errors'        => $this->errors,

@@ -23,6 +23,7 @@ require __DIR__ . '/lib/Consent.php';
 require __DIR__ . '/lib/Template.php';
 require __DIR__ . '/lib/BlogRenderer.php';
 require __DIR__ . '/lib/BlogExtractor.php';
+require __DIR__ . '/lib/Restructure.php';
 require __DIR__ . '/lib/Cloner.php';
 
 $url = null;
@@ -63,5 +64,5 @@ $s = $report['stats'];
 if ($report['forms'] && !$report['embed']) {
     echo "\nATTENZIONE: il sito ha form ma manca --embed: i form non invieranno finché non aggiungi lo script del pannello\n";
 }
-echo "\nFatto: {$s['pages']} pagine, {$s['assets']} risorse, {$s['mb']} MB in {$s['seconds']}s\n";
+echo "\nFatto: {$s['pages']} pagine, {$s['files_after']} file, {$s['mb_after']} MB in {$s['seconds']}s\n";
 echo 'Form: ' . count($report['forms']) . ' · Errori: ' . count($report['errors']) . " · Report: $out/site.json\n";
