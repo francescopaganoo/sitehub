@@ -1,4 +1,4 @@
-# Collegare un sito HTML al pannello
+# Collegare un sito HTML a SiteHub
 
 Questa guida è per chi realizza l'HTML di un sito, a mano o con un LLM.
 L'HTML può essere fatto come si preferisce: i moduli del pannello (form, cookie, blog) si adattano.
@@ -11,7 +11,7 @@ Servono solo le poche convenzioni descritte qui.
 Una riga, prima di `</body>`, uguale su **tutte** le pagine:
 
 ```html
-<script src="https://pannello.agenzia.it/e/v1/pk_XXXXXXXX.js" defer></script>
+<script src="https://hub.planstudios.it/e/v1/pk_XXXXXXXX.js" defer></script>
 ```
 
 La riga esatta, con la chiave `pk_…` del sito, si trova nel pannello alla voce del sito (campo `embed.snippet`).

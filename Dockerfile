@@ -1,7 +1,7 @@
-# Pannello (Modulo 2) – Coolify: build pack "Dockerfile", porta 80.
+# SiteHub (pannello dei siti statici) – Coolify: build pack "Dockerfile", porta 80.
 #
 # Variabili d'ambiente (Coolify → Environment Variables):
-#   PANEL_URL     https://pannello.agenzia.it   (indirizzo pubblico: entra negli script dei siti)
+#   PANEL_URL     https://hub.planstudios.it   (indirizzo pubblico: entra negli script dei siti)
 #   PANEL_KEY     32 byte in base64 (openssl rand -base64 32) – cifra le password SMTP: NON cambiarla
 #   GITHUB_TOKEN  token GitHub con permesso "Contents: read and write" sui repo dei siti
 #   TZ            Europe/Rome

@@ -1,4 +1,4 @@
-# API del pannello – v1
+# SiteHub – API v1
 
 API REST JSON per gestire i siti statici: blog, categorie, moduli (form ed email), pubblicazione.
 Il pannello web e il gestionale usano le stesse API.
@@ -96,8 +96,8 @@ Restituisce un sito.
     "auto_publish": true,
     "public_key": "pk_be3a44d5e2d9ad7cf76886fc",
     "embed": {
-      "script_url": "https://pannello.agenzia.it/e/v1/pk_be3a44d5e2d9ad7cf76886fc.js",
-      "snippet": "<script src=\"https://pannello.agenzia.it/e/v1/pk_be3a44d5e2d9ad7cf76886fc.js\" defer></script>"
+      "script_url": "https://hub.planstudios.it/e/v1/pk_be3a44d5e2d9ad7cf76886fc.js",
+      "snippet": "<script src=\"https://hub.planstudios.it/e/v1/pk_be3a44d5e2d9ad7cf76886fc.js\" defer></script>"
     },
     "modules": { "forms": true, "cookies": true, "blog": true },
     "origins": ["staging.alservice.it"],
@@ -347,7 +347,7 @@ Reinvia il messaggio, per esempio dopo aver corretto l'SMTP o i destinatari.
 
 ```bash
 TOKEN=ssg_…
-API=https://pannello.agenzia.it/api/v1
+API=https://hub.planstudios.it/api/v1
 
 # nuovo articolo pubblicato subito
 curl -X POST $API/sites/alservice/posts \

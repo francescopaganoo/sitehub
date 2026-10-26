@@ -4,22 +4,22 @@ Due tipi di applicazione su Coolify:
 
 | | Repo | Cosa contiene |
 |---|---|---|
-| **Pannello** (una volta sola) | questo repo (`static-site-gen`) | API, moduli (form/email), pubblicazione del blog |
+| **SiteHub** (una volta sola) | questo repo (`sitehub`) | API, moduli (form/email), pubblicazione del blog |
 | **Un'applicazione per ogni sito** | un repo per sito (es. `alservice`) | il sito statico (`public/`) + `Dockerfile` e `nginx.conf` generati |
 
 Entrambi usano il build pack **Dockerfile** e la porta **80**.
 
 ---
 
-## A. Pannello (una volta sola)
+## A. SiteHub (una volta sola)
 
 1. **Repo:** pubblica questo repo su GitHub come repo **privato**.
-2. **Coolify → New Resource → Application** dal repo, *Build Pack: Dockerfile*, porta 80, dominio es. `https://pannello.agenzia.it`.
+2. **Coolify → New Resource → Application** dal repo, *Build Pack: Dockerfile*, porta 80, dominio es. `https://hub.planstudios.it`.
 3. **Environment Variables:**
 
    | Variabile | Valore |
    |---|---|
-   | `PANEL_URL` | `https://pannello.agenzia.it` |
+   | `PANEL_URL` | `https://hub.planstudios.it` |
    | `PANEL_KEY` | output di `openssl rand -base64 32`. **Non cambiarla mai**: cifra le password SMTP |
    | `GITHUB_TOKEN` | token *fine-grained* con **Contents: Read and write** sui repo dei siti |
    | `TZ` | `Europe/Rome` |
@@ -38,7 +38,7 @@ Entrambi usano il build pack **Dockerfile** e la porta **80**.
 
 ## B. Un sito
 
-Negli esempi: `API=https://pannello.agenzia.it/api/v1` e `TOKEN` = token agenzia.
+Negli esempi: `API=https://hub.planstudios.it/api/v1` e `TOKEN` = token agenzia.
 
 ### 1. Registra il sito nel pannello
 
@@ -56,7 +56,7 @@ La risposta contiene `embed.script_url`, cioè lo script del pannello con la chi
 
 ```bash
 php clone.php https://alservice.it
-php rebuild.php sites/alservice --embed=https://pannello.agenzia.it/e/v1/pk_….js
+php rebuild.php sites/alservice --embed=https://hub.planstudios.it/e/v1/pk_….js
 ```
 
 Se usi la copia fedele invece della ricostruzione, aggiungi `--embed=…` direttamente a `clone.php`.
