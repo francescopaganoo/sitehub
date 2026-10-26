@@ -101,7 +101,7 @@ Restituisce un sito.
     },
     "modules": { "forms": true, "cookies": true, "blog": true },
     "origins": ["staging.alservice.it"],
-    "cookies": { "policy_url": "/cookie-policy/", "categories": ["statistics"], "text": "", "color": "#1d4ed8", "version": 1 },
+    "cookies": { "policy_url": "/cookie-policy/", "categories": ["statistics"], "text": "", "color": "#1d4ed8", "button": "left", "version": 1 },
     "blog": { "permalink": "/{slug}/", "category_path": "/category/{slug}/", "index_path": null, "index_title": "Blog", "per_page": 10 },
     "imported": true,
     "submissions": { "total": 12, "unsent": 0, "last_at": "2026-10-26T14:34:34+01:00" },
@@ -145,6 +145,7 @@ Campi di `cookies` (banner di consenso, modulo `cookies`). Si aggiornano solo le
 | `categories` | `["statistics", "marketing"]` | categorie chieste sempre, oltre a quelle trovate nella pagina (`data-ssg-consent`). Nessuna categoria = niente banner |
 | `text` | `"Usiamo cookie…"` | testo del banner, massimo 600 caratteri; vuoto = testo predefinito |
 | `color` | `"#1d4ed8"` | colore dei pulsanti; vuoto = grigio scuro |
+| `button` | `"left"` | pulsante fisso per riaprire le preferenze, se la pagina non ha un link `#cookie-settings`: `left`, `right` o `none` |
 | `reset_consent` | `true` | solo in scrittura: incrementa `version` e il banner ricompare a tutti i visitatori |
 
 Come anche `modules`, le modifiche arrivano sul sito entro 5 minuti. Le convenzioni per l'HTML sono in `INTEGRAZIONE.md`.

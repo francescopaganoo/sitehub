@@ -100,13 +100,14 @@ Categorie: `statistics` (statistiche, analytics) e `marketing` (pubblicità, pix
 <iframe data-ssg-consent="marketing" data-ssg-src="https://www.google.com/maps/embed?pb=…" width="600" height="400" style="border:0" loading="lazy"></iframe>
 ```
 
-**Link per cambiare le preferenze** (obbligatorio se il sito usa cookie non tecnici), di solito nel footer:
+**Link per cambiare le preferenze** (consigliato), di solito nel footer:
 
 ```html
 <a href="#cookie-settings">Preferenze cookie</a>
 ```
 
-Va bene anche qualunque elemento con `data-ssg-cookie-settings`.
+Va bene anche qualunque elemento con `data-ssg-cookie-settings`. Funziona anche da un'altra pagina, per esempio nella cookie policy: `<a href="/#cookie-settings">cambia le preferenze</a>` apre la home con le preferenze aperte.
+Se la pagina non ha nessuno di questi link, dopo la scelta compare un piccolo pulsante fisso in un angolo che riapre le preferenze. L'angolo (sinistra o destra) o la sua disattivazione si impostano nel pannello.
 
 **Cosa fa il modulo da solo:**
 - pulsanti "Rifiuta", "Personalizza", "Accetta tutti" con lo stesso peso; la X chiude rifiutando;
@@ -115,7 +116,7 @@ Va bene anche qualunque elemento con `data-ssg-cookie-settings`.
 - se il sito usa `gtag`, aggiorna Google Consent Mode v2; invia l'evento `ssg:consent` sul `document`;
 - banner isolato dallo stile del sito (shadow DOM). Per usare il font del sito: `:root { --ssg-font: "Montserrat", sans-serif; }`.
 
-Nel pannello si impostano il link alla cookie policy (predefinito `/cookie-policy/`), il colore dei pulsanti, un testo personalizzato e le categorie da chiedere anche se non compaiono nella pagina, per esempio quelle usate da un Google Tag Manager.
+Nel pannello si impostano il link alla cookie policy (predefinito `/cookie-policy/`), il colore dei pulsanti, un testo personalizzato, la posizione del pulsante fisso e le categorie da chiedere anche se non compaiono nella pagina, per esempio quelle usate da un Google Tag Manager.
 
 **Da evitare:**
 - script che tracciano scritti normalmente, senza `type="text/plain"`: partono prima del consenso;

@@ -192,7 +192,7 @@ final class SitesApi extends Api
     private function validCookies(mixed $in, array $current, array &$errors): array
     {
         if (!is_array($in)) {
-            $errors['cookies'] = 'Oggetto: policy_url, categories, text, color, reset_consent';
+            $errors['cookies'] = 'Oggetto: policy_url, categories, text, color, button, reset_consent';
             return $current;
         }
         if (array_key_exists('policy_url', $in)) {
@@ -222,6 +222,12 @@ final class SitesApi extends Api
                 $errors['cookies.color'] = 'Colore esadecimale, es. #1d4ed8';
             }
         }
+        if (array_key_exists('button', $in)) {
+            $current['button'] = (string) $in['button'];
+            if (!in_array($current['button'], ['left', 'right', 'none'], true)) {
+                $errors['cookies.button'] = 'Valori ammessi: left, right, none';
+            }
+        }
         if (!empty($in['reset_consent'])) {
             $current['version'] = ($current['version'] ?? 1) + 1;
         }
@@ -237,6 +243,7 @@ final class SitesApi extends Api
             'categories' => $c['categories'] ?? [],
             'text'       => $c['text'] ?? '',
             'color'      => $c['color'] ?? '',
+            'button'     => $c['button'] ?? 'left',
             'version'    => $c['version'] ?? 1,
         ];
     }

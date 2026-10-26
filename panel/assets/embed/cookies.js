@@ -7,7 +7,8 @@
  *    (impostate nel pannello o trovate nella pagina)
  *  - Rifiuta ha lo stesso peso di Accetta; la X chiude rifiutando (linee guida del Garante)
  *  - consenso salvato nel browser per 6 mesi; il pannello può chiederlo di nuovo a tutti (version)
- *  - riapertura: qualunque elemento con data-ssg-cookie-settings o link a #cookie-settings
+ *  - riapertura: qualunque elemento con data-ssg-cookie-settings, link a #cookie-settings (anche da altre
+ *    pagine, es. /cookie-policy/#cookie-settings) e, se la pagina non ha link, un pulsante fisso in un angolo
  *  - Google Consent Mode v2 se il sito usa gtag; evento "ssg:consent" sul document
  */
 (function () {
@@ -23,8 +24,11 @@
   var TEXT = CFG.text || 'Usiamo cookie tecnici, necessari al funzionamento del sito, e, solo con il tuo consenso, cookie di altro tipo per le finalità indicate. Puoi accettarli, rifiutarli o scegliere quali consentire.';
   var COLOR = CFG.color || '#1f2937';
 
+  var BUTTON = ['left', 'right', 'none'].indexOf(CFG.button) >= 0 ? CFG.button : 'left';
+
   var consent = read();
   var root = null;
+  var fab = null;
 
   function read() {
     try {
@@ -261,6 +265,7 @@
     shadow.appendChild(box);
     document.body.appendChild(host);
     root = host;
+    reopenButton();
     var first = shadow.querySelector(details ? 'input:not(:disabled), .a button' : '.a button');
     if (first && (details || consent)) first.focus();
   }
@@ -268,6 +273,55 @@
   function close() {
     if (root) root.remove();
     root = null;
+    reopenButton();
+  }
+
+  // ------------------------------------------------------------------ pulsante per riaprire le preferenze
+
+  var ICON = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5Zm-3.5 7a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm-1 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Zm5 1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm4-1a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>';
+
+  // aperte da indirizzo (es. /cookie-policy/#cookie-settings): si toglie #cookie-settings, così ricaricando non si riaprono
+  function openFromHash() {
+    if (location.hash !== '#cookie-settings') return false;
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* resta nell'indirizzo */ }
+    open(true);
+    return true;
+  }
+
+  function settingsLink(a) {
+    return a.hash === '#cookie-settings' && a.host === location.host && a.pathname === location.pathname;
+  }
+
+  function hasLink() {
+    if (document.querySelector('[data-ssg-cookie-settings]')) return true;
+    return Array.prototype.some.call(document.querySelectorAll('a[href*="#cookie-settings"]'), function (a) {
+      return a.offsetParent !== null;
+    });
+  }
+
+  // il visitatore deve poter cambiare idea: se il sito non ha un link visibile, ci pensa questo pulsante
+  function reopenButton() {
+    var show = BUTTON !== 'none' && !root && consent && used().length && !hasLink();
+    if (!show) {
+      if (fab) fab.remove();
+      fab = null;
+      return;
+    }
+    if (fab) return;
+    fab = el('div', { id: 'ssg-cookie-button' });
+    var shadow = fab.attachShadow ? fab.attachShadow({ mode: 'open' }) : fab;
+    var style = el('style');
+    style.textContent = ':host{all:initial}' +
+      'button{position:fixed;z-index:2147483645;bottom:16px;' + BUTTON + ':16px;width:44px;height:44px;border-radius:50%;border:0;' +
+      'display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;background:' + COLOR + ';' +
+      'box-shadow:0 4px 14px rgba(0,0,0,.25);opacity:.85;transition:opacity .15s}' +
+      'button:hover{opacity:1}button:focus-visible{outline:3px solid #2563eb;outline-offset:2px;opacity:1}';
+    var b = el('button', { type: 'button', 'aria-label': 'Preferenze cookie', title: 'Preferenze cookie' });
+    b.innerHTML = ICON;
+    b.addEventListener('click', function () { open(true); });
+    shadow.appendChild(style);
+    shadow.appendChild(b);
+    document.body.appendChild(fab);
   }
 
   // ------------------------------------------------------------------ avvio
@@ -280,15 +334,18 @@
 
   function init() {
     activate();
+    if (!openFromHash() && !consent && used().length) open(false);
     if (consent) signal();
-    else if (used().length) open(false);
+    reopenButton();
 
     document.addEventListener('click', function (e) {
-      var t = e.target.closest && e.target.closest('[data-ssg-cookie-settings], a[href="#cookie-settings"]');
-      if (!t) return;
+      var t = e.target.closest && e.target.closest('[data-ssg-cookie-settings], a[href*="#cookie-settings"]');
+      // link a #cookie-settings di un'altra pagina: si naviga, e la pagina di arrivo apre le preferenze
+      if (!t || (t.tagName === 'A' && !t.hasAttribute('data-ssg-cookie-settings') && !settingsLink(t))) return;
       e.preventDefault();
       open(true);
     });
+    window.addEventListener('hashchange', openFromHash);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
