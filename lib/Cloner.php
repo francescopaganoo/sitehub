@@ -59,7 +59,7 @@ final class Cloner
     private int $bytes = 0;
 
     /**
-     * @param array{url:string, out:string, slug:string, domain?:string, form_endpoint:string, exclude?:string[], local_fonts?:bool} $cfg
+     * @param array{url:string, out:string, slug:string, domain?:string, embed:?string, exclude?:string[], local_fonts?:bool} $cfg
      */
     public function __construct(private array $cfg)
     {
@@ -300,7 +300,7 @@ final class Cloner
             $this->localizeGoogleFonts($doc);
         }
 
-        $hasForms = $this->convertForms($doc, $pagePath);
+        $this->convertForms($doc, $pagePath);
 
         foreach (iterator_to_array($doc->getElementsByTagName('*')) as $el) {
             $keepAbsolute = $this->keepsAbsolute($el);
@@ -329,10 +329,9 @@ final class Cloner
 
         $this->consent->block($doc);
 
-        // consent.js va su tutte le pagine anche senza servizi da bloccare:
-        // gestisce il link "gestisci consensi" e il pannello può attivare il banner senza rigenerare l'HTML
-        $scripts = $hasForms ? ['/_ssg/consent.js', '/_ssg/forms.js'] : ['/_ssg/consent.js'];
-        foreach ($scripts as $src) {
+        // su tutte le pagine anche senza servizi da bloccare o form: i moduli si attivano dal pannello
+        // senza dover rigenerare l'HTML
+        foreach (array_filter(['/_ssg/consent.js', $this->cfg['embed']]) as $src) {
             $script = $doc->createElement('script');
             $script->setAttribute('src', $src);
             $script->setAttribute('defer', '');
@@ -454,61 +453,39 @@ final class Cloner
     }
 
     /**
-     * Aggancia i form (Elementor, CF7) all'endpoint del pannello.
-     * Il submit vero lo gestisce /_ssg/forms.js, che blocca gli handler AJAX di WordPress.
+     * Collega i form (Elementor, CF7) al modulo form del pannello: basta marcarli con data-ssg-form.
+     * Etichette, honeypot e blocco degli handler AJAX di WordPress li gestisce embed.js nel browser.
      */
-    private function convertForms(Dom\HTMLDocument $doc, string $pagePath): bool
+    private function convertForms(Dom\HTMLDocument $doc, string $pagePath): void
     {
-        $found = false;
-        foreach ($doc->querySelectorAll('form.elementor-form, form.wpcf7-form') as $i => $form) {
-            $found = true;
-            $id = $form->querySelector('input[name="form_id"]')?->getAttribute('value')
-                ?: ($form->getAttribute('name') ?: 'form-' . ($i + 1));
+        foreach ($doc->querySelectorAll('form.elementor-form, form.wpcf7-form') as $form) {
+            // lo stesso form (es. nel footer) ha lo stesso id su tutte le pagine
+            $wpId = $form->querySelector('input[name="form_id"], input[name="_wpcf7"]')?->getAttribute('value') ?? spl_object_id($form);
+            if (!isset($this->forms[$wpId])) {
+                $name = trim($form->getAttribute('name') ?? '');
+                $key = preg_match('~^(new form|)$~i', $name) ? 'contatti' : trim(preg_replace('~[^a-z0-9]+~', '-', strtolower($name)), '-');
+                $taken = array_column($this->forms, 'key');
+                for ($n = 2, $base = $key; in_array($key, $taken, true); $n++) {
+                    $key = "$base-$n";
+                }
+                $this->forms[$wpId] = ['key' => $key, 'name' => $name ?: 'Contatti', 'pages' => []];
+            }
+            $this->forms[$wpId]['pages'][] = $pagePath;
 
-            $form->setAttribute('action', $this->cfg['form_endpoint']);
+            $form->setAttribute('data-ssg-form', $this->forms[$wpId]['key']);
             $form->setAttribute('method', 'post');
-            $form->setAttribute('data-ssg-form', $id);
-
-            $hp = $doc->createElement('input');
-            foreach (['type' => 'text', 'name' => '_hp', 'tabindex' => '-1', 'autocomplete' => 'off',
-                         'aria-hidden' => 'true', 'style' => 'position:absolute;left:-9999px;opacity:0'] as $k => $v) {
-                $hp->setAttribute($k, $v);
+            if ($this->submitUrl()) {
+                $form->setAttribute('action', $this->submitUrl()); // invio anche senza JavaScript
+            } else {
+                $form->removeAttribute('action');
             }
-            $form->appendChild($hp);
-
-            if (isset($this->forms[$id])) {
-                $this->forms[$id]['pages'][] = $pagePath;
-                continue;
-            }
-
-            $fields = [];
-            $honeypots = ['_hp'];
-            foreach ($form->querySelectorAll('input, textarea, select') as $f) {
-                $type = $f->localName === 'input' ? strtolower($f->getAttribute('type') ?? 'text') : $f->localName;
-                $name = $f->getAttribute('name');
-                if (!$name || $name === '_hp' || in_array($type, ['hidden', 'submit', 'button'], true)) {
-                    continue;
-                }
-                // campi nascosti via CSS = honeypot del plugin (es. Elementor)
-                if (preg_match('~display:\s*none~', $f->getAttribute('style') ?? '')) {
-                    $honeypots[] = $name;
-                    continue;
-                }
-                $label = null;
-                if ($fid = $f->getAttribute('id')) {
-                    $label = $form->querySelector('label[for="' . addcslashes($fid, '"\\') . '"]')?->textContent;
-                }
-                $fields[] = [
-                    'name'     => $name,
-                    'type'     => $type,
-                    'label'    => trim($label ?: $f->getAttribute('placeholder') ?: $f->getAttribute('aria-label') ?: $name),
-                    'required' => $f->hasAttribute('required'),
-                ];
-            }
-            $this->forms[$id] = ['id' => $id, 'name' => $form->getAttribute('name'), 'pages' => [$pagePath],
-                'fields' => $fields, 'honeypots' => $honeypots];
         }
-        return $found;
+    }
+
+    /** URL di invio dei form ricavato dallo script embed (…/e/v1/pk_x.js → …/e/v1/pk_x/submit). */
+    private function submitUrl(): ?string
+    {
+        return $this->cfg['embed'] ? preg_replace('~\.js$~', '/submit', $this->cfg['embed']) : null;
     }
 
     // ---------------------------------------------------------------- risorse
@@ -638,7 +615,6 @@ final class Cloner
 
     private function writeSupportFiles(): void
     {
-        $this->write('/_ssg/forms.js', file_get_contents(__DIR__ . '/../assets/forms.js'));
 
         $privacy = array_values(array_filter($this->pages, fn($p) => str_contains($p, 'privacy')))[0] ?? null;
         $config = $this->consent->config($this->cfg['slug'], $this->public, $privacy);
@@ -664,7 +640,7 @@ final class Cloner
             'domain'        => $this->domain,
             'site_name'     => $this->siteName,
             'timezone'      => $this->timezone,
-            'form_endpoint' => $this->cfg['form_endpoint'],
+            'embed'         => $this->cfg['embed'],
             'cloned_at'     => date('c'),
             'stats'         => [
                 'pages'   => count($this->pages),

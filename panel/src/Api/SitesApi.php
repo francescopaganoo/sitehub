@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Panel\Api;
 
 use Panel\Auth;
+use Panel\Embed;
 use Panel\Http\ApiError;
 use Panel\Http\Request;
 use Panel\Http\Response;
@@ -15,6 +16,9 @@ final class SitesApi extends Api
     /** Impostazioni del blog modificabili via API. */
     private const BLOG_FIELDS = ['index_path', 'index_title', 'per_page', 'permalink', 'category_path'];
 
+    /** Moduli attivabili per sito. */
+    private const MODULES = ['forms', 'cookies', 'blog'];
+
     public function routes(Router $r): void
     {
         $r->add('GET', '/sites', fn(Request $q) => $this->index());
@@ -24,6 +28,7 @@ final class SitesApi extends Api
         $r->add('POST', '/sites/{site}/import', fn(Request $q) => $this->import($q));
         $r->add('POST', '/sites/{site}/publish', fn(Request $q) => $this->publish($q));
         $r->add('GET', '/sites/{site}/publications', fn(Request $q) => $this->publications($q));
+        $r->add('POST', '/sites/{site}/rotate-key', fn(Request $q) => $this->rotateKey($q));
     }
 
     private function index(): Response
@@ -50,12 +55,15 @@ final class SitesApi extends Api
             $errors['domain'] = 'Obbligatorio, es. https://www.sito.it';
         }
         $target = $this->validTarget($in['target'] ?? null, $errors);
+        $modules = $this->validModules($in['modules'] ?? [], array_fill_keys(self::MODULES, true), $errors);
+        $origins = $this->validOrigins($in['origins'] ?? [], $errors);
         if ($errors) {
             throw ApiError::validation($errors);
         }
 
         $site = $this->store->createSite(['slug' => $slug, 'name' => trim($in['name']), 'domain' => $domain, 'target' => $target,
-            'config' => ['auto_publish' => (bool) ($in['auto_publish'] ?? true)]]);
+            'config' => ['auto_publish' => (bool) ($in['auto_publish'] ?? true)], 'public_key' => self::newKey(),
+            'modules' => $modules, 'origins' => $origins]);
         return Response::json(['data' => $this->out($site)], 201);
     }
 
@@ -81,6 +89,12 @@ final class SitesApi extends Api
         }
         if (array_key_exists('target', $in)) {
             $set['target'] = $this->validTarget($in['target'], $errors);
+        }
+        if (array_key_exists('modules', $in)) {
+            $set['modules'] = $this->validModules($in['modules'], $site['modules'], $errors);
+        }
+        if (array_key_exists('origins', $in)) {
+            $set['origins'] = $this->validOrigins($in['origins'], $errors);
         }
         $config = $site['config'];
         if (array_key_exists('auto_publish', $in)) {
@@ -129,6 +143,47 @@ final class SitesApi extends Api
         return Response::json(['data' => $this->store->publications($site['id'], $req->int('limit', 20, 1, 100))]);
     }
 
+    /** Nuova chiave: l'HTML con la vecchia smette di funzionare finché non si aggiorna lo script. */
+    private function rotateKey(Request $req): Response
+    {
+        Auth::requireAgency($this->principal);
+        $site = $this->site($req->param('site'));
+        $this->store->updateSite($site['id'], ['public_key' => self::newKey()]);
+        return Response::json(['data' => $this->out($this->site($site['slug']))]);
+    }
+
+    private static function newKey(): string
+    {
+        return 'pk_' . bin2hex(random_bytes(12));
+    }
+
+    private function validModules(mixed $in, array $current, array &$errors): array
+    {
+        if (!is_array($in) || array_diff_key($in, array_flip(self::MODULES))) {
+            $errors['modules'] = 'Oggetto con chiavi ' . implode(', ', self::MODULES) . ' e valori true/false';
+            return $current;
+        }
+        foreach ($in as $k => $v) {
+            $current[$k] = (bool) $v;
+        }
+        return $current;
+    }
+
+    /** Domini extra da cui i form sono accettati (es. anteprime Coolify). Il dominio del sito è sempre ammesso. */
+    private function validOrigins(mixed $in, array &$errors): array
+    {
+        $out = [];
+        foreach (is_array($in) ? $in : [null] as $o) {
+            $host = strtolower(preg_replace('~^https?://~', '', rtrim(trim((string) $o), '/')));
+            if (!preg_match('~^[a-z0-9.-]+(:\d+)?$~', $host)) {
+                $errors['origins'] = 'Lista di domini, es. ["staging.sito.it", "localhost:8080"]';
+                return [];
+            }
+            $out[] = $host;
+        }
+        return array_values(array_unique($out));
+    }
+
     private function validTarget(mixed $t, array &$errors): array
     {
         if (!is_array($t) || !in_array($t['type'] ?? null, ['github', 'local'], true)) {
@@ -155,6 +210,10 @@ final class SitesApi extends Api
             'domain'       => $site['domain'],
             'target'       => $site['target'],
             'auto_publish' => $site['config']['auto_publish'] ?? true,
+            'public_key'   => $site['public_key'],
+            'embed'        => ['script_url' => Embed::scriptUrl($site['public_key']), 'snippet' => Embed::snippet($site['public_key'])],
+            'modules'      => $site['modules'],
+            'origins'      => $site['origins'],
             'blog'         => array_intersect_key($site['config']['blog'] ?? [], array_flip(self::BLOG_FIELDS)) ?: null,
             'imported'     => !empty($site['templates']),
             'published_at' => $site['published_at'],

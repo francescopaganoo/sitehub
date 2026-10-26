@@ -42,6 +42,11 @@ final class Request
         return new self($this->method, $path, $this->query, $this->headers, $this->body, $this->files);
     }
 
+    public function rawBody(): string
+    {
+        return $this->body;
+    }
+
     public function header(string $name): ?string
     {
         return $this->headers[strtolower($name)] ?? null;

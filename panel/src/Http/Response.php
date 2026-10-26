@@ -24,9 +24,9 @@ final class Response
         return new self(204, '');
     }
 
-    public static function html(string $html): self
+    public static function html(string $html, int $status = 200): self
     {
-        return new self(200, $html, ['Content-Type' => 'text/html; charset=utf-8']);
+        return new self($status, $html, ['Content-Type' => 'text/html; charset=utf-8']);
     }
 
     public static function error(ApiError $e): self
@@ -36,6 +36,16 @@ final class Response
             $err['fields'] = $e->fields;
         }
         return self::json(['error' => $err], $e->status);
+    }
+
+    public function withHeaders(array $headers): self
+    {
+        return new self($this->status, $this->body, $headers + $this->headers);
+    }
+
+    public static function redirect(string $url): self
+    {
+        return new self(303, '', ['Location' => $url]);
     }
 
     public function send(): void

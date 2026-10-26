@@ -77,6 +77,55 @@ final class Db
             error       TEXT
         );
         SQL,
+        // moduli collegati all'HTML tramite chiave pubblica: form, email per sito
+        <<<SQL
+        ALTER TABLE sites ADD COLUMN public_key TEXT;
+        UPDATE sites SET public_key = 'pk_' || lower(hex(randomblob(12)));
+        CREATE UNIQUE INDEX sites_public_key ON sites(public_key);
+        ALTER TABLE sites ADD COLUMN modules TEXT NOT NULL DEFAULT '{"forms":true,"cookies":true,"blog":true}';
+        ALTER TABLE sites ADD COLUMN origins TEXT NOT NULL DEFAULT '[]'; -- domini extra ammessi (staging, anteprime)
+        CREATE TABLE mail_settings (
+            site_id     INTEGER PRIMARY KEY REFERENCES sites(id) ON DELETE CASCADE,
+            host        TEXT NOT NULL,
+            port        INTEGER NOT NULL,
+            encryption  TEXT NOT NULL,              -- tls (STARTTLS) | ssl | none
+            username    TEXT NOT NULL DEFAULT '',
+            password    TEXT NOT NULL DEFAULT '',   -- cifrata (Crypto)
+            from_email  TEXT NOT NULL,
+            from_name   TEXT NOT NULL DEFAULT '',
+            recipients  TEXT NOT NULL DEFAULT '[]', -- destinatari predefiniti dei form
+            updated_at  TEXT NOT NULL
+        );
+        CREATE TABLE forms (
+            site_id          INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+            key              TEXT NOT NULL,
+            name             TEXT NOT NULL,
+            enabled          INTEGER NOT NULL DEFAULT 1,
+            recipients       TEXT NOT NULL DEFAULT '[]', -- vuoto = destinatari predefiniti del sito
+            subject          TEXT NOT NULL DEFAULT '',
+            success_message  TEXT NOT NULL DEFAULT '',
+            autoreply        TEXT NOT NULL DEFAULT '{}', -- {enabled, subject, body}
+            created_at       TEXT NOT NULL,
+            PRIMARY KEY (site_id, key)
+        );
+        CREATE TABLE submissions (
+            id          INTEGER PRIMARY KEY,
+            site_id     INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+            form_key    TEXT NOT NULL,
+            fields      TEXT NOT NULL,              -- [{name, label, type, value}]
+            reply_to    TEXT,
+            page        TEXT NOT NULL DEFAULT '',
+            ip_hash     TEXT NOT NULL,
+            user_agent  TEXT NOT NULL DEFAULT '',
+            status      TEXT NOT NULL,              -- pending | sent | failed | spam
+            attempts    INTEGER NOT NULL DEFAULT 0,
+            last_error  TEXT,
+            created_at  TEXT NOT NULL,
+            sent_at     TEXT
+        );
+        CREATE INDEX submissions_site ON submissions(site_id, id DESC);
+        CREATE INDEX submissions_rate ON submissions(site_id, ip_hash, created_at);
+        SQL,
     ];
 
     public function __construct(string $path)

@@ -5,7 +5,7 @@ declare(strict_types=1);
  * Modulo 1 — clona un sito WordPress in HTML statico.
  *
  *   php clone.php https://sito.it [--slug=sito] [--out=sites/sito]
- *                 [--domain=https://sito.it] [--form-endpoint=https://pannello/f/sito]
+ *                 [--domain=https://sito.it] [--embed=https://pannello/e/v1/pk_xxx.js]
  *                 [--exclude=~regex~] [--no-local-fonts]
  */
 
@@ -36,7 +36,7 @@ foreach (array_slice($argv, 1) as $arg) {
 }
 
 if (!$url || !preg_match('~^https?://~', $url)) {
-    fwrite(STDERR, "Uso: php clone.php https://sito.it [--slug=…] [--out=…] [--domain=…] [--form-endpoint=…]\n");
+    fwrite(STDERR, "Uso: php clone.php https://sito.it [--slug=…] [--out=…] [--domain=…] [--embed=…]\n");
     exit(1);
 }
 
@@ -54,11 +54,14 @@ $report = (new Cloner([
     'out'           => $out,
     'slug'          => $slug,
     'domain'        => $opt['domain'][0] ?? null,
-    'form_endpoint' => $opt['form-endpoint'][0] ?? "https://pannello.example/f/$slug",
+    'embed'         => $opt['embed'][0] ?? null,
     'exclude'       => $opt['exclude'] ?? [],
     'local_fonts'   => !isset($opt['no-local-fonts']),
 ]))->run();
 
 $s = $report['stats'];
+if ($report['forms'] && !$report['embed']) {
+    echo "\nATTENZIONE: il sito ha form ma manca --embed: i form non invieranno finché non aggiungi lo script del pannello\n";
+}
 echo "\nFatto: {$s['pages']} pagine, {$s['assets']} risorse, {$s['mb']} MB in {$s['seconds']}s\n";
 echo 'Form: ' . count($report['forms']) . ' · Errori: ' . count($report['errors']) . " · Report: $out/site.json\n";

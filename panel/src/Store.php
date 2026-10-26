@@ -11,7 +11,7 @@ use Panel\Http\ApiError;
  */
 final class Store
 {
-    private const SITE_JSON = ['target', 'config', 'templates', 'manifest'];
+    private const SITE_JSON = ['target', 'config', 'templates', 'manifest', 'modules', 'origins'];
     private const POST_JSON = ['categories', 'tags', 'image', 'seo'];
 
     public function __construct(private Db $db)
@@ -37,6 +37,13 @@ final class Store
             throw ApiError::notFound('Sito');
         }
         return $this->decode($row, self::SITE_JSON);
+    }
+
+    /** Sito dalla chiave pubblica inserita nell'HTML (endpoint pubblici, senza token). */
+    public function siteByKey(string $publicKey): ?array
+    {
+        $row = $this->db->one('SELECT * FROM sites WHERE public_key = ?', [$publicKey]);
+        return $row ? $this->decode($row, self::SITE_JSON) : null;
     }
 
     public function createSite(array $site): array

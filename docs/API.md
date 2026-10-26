@@ -1,7 +1,9 @@
 # API del pannello – v1
 
-API REST JSON per gestire i siti statici: blog, categorie, pubblicazione.
+API REST JSON per gestire i siti statici: blog, categorie, moduli (form ed email), pubblicazione.
 Il pannello web e il gestionale usano le stesse API.
+
+Per collegare l'HTML di un sito ai moduli vedi [INTEGRAZIONE.md](INTEGRAZIONE.md).
 
 - **Base URL:** `https://<pannello>/api/v1`
 - **Formato:** JSON in UTF-8, sia nelle richieste (`Content-Type: application/json`) sia nelle risposte.
@@ -92,6 +94,13 @@ Restituisce un sito.
     "domain": "https://alservice.it",
     "target": { "type": "github", "repo": "agenzia/alservice", "branch": "main" },
     "auto_publish": true,
+    "public_key": "pk_be3a44d5e2d9ad7cf76886fc",
+    "embed": {
+      "script_url": "https://pannello.agenzia.it/e/v1/pk_be3a44d5e2d9ad7cf76886fc.js",
+      "snippet": "<script src=\"https://pannello.agenzia.it/e/v1/pk_be3a44d5e2d9ad7cf76886fc.js\" defer></script>"
+    },
+    "modules": { "forms": true, "cookies": true, "blog": true },
+    "origins": ["staging.alservice.it"],
     "blog": { "permalink": "/{slug}/", "category_path": "/category/{slug}/", "index_path": null, "index_title": "Blog", "per_page": 10 },
     "imported": true,
     "published_at": "2026-10-26T14:14:00+01:00",
@@ -110,14 +119,21 @@ Registra un sito. Il suo repo deve contenere l'output del clonatore.
   "name": "Al Service",
   "domain": "https://alservice.it",
   "target": { "type": "github", "repo": "agenzia/alservice", "branch": "main" },
-  "auto_publish": true
+  "auto_publish": true,
+  "modules": { "forms": true, "cookies": true, "blog": true },
+  "origins": []
 }
 ```
 
-`target.type: "local"` con `path` scrive in una cartella del server ed è pensato per sviluppo e test.
+- `target.type: "local"` con `path` scrive in una cartella del server ed è pensato per sviluppo e test.
+- Viene generata la **chiave pubblica** del sito (`public_key`). `embed.snippet` è la riga da inserire nell'HTML.
+- `modules`: tutti attivi se omesso.
+- `origins`: domini **in più** da cui accettare i form, per esempio staging o anteprime. Il dominio del sito, con e senza `www`, è sempre ammesso.
 
 ### `PATCH /sites/{site}` (solo agenzia)
-Modifica solo i campi inviati: `name`, `domain`, `target`, `auto_publish`, `blog`.
+Modifica solo i campi inviati: `name`, `domain`, `target`, `auto_publish`, `modules`, `origins`, `blog`.
+
+`modules` aggiorna solo le chiavi inviate, per esempio `{"modules": {"forms": false}}`. Il cambiamento arriva sul sito entro 5 minuti (cache dello script) e non serve toccare l'HTML.
 
 Campi di `blog`:
 
@@ -141,6 +157,9 @@ Rigenera e pubblica tutto il blog. È utile quando `auto_publish` è disattivato
 
 ### `GET /sites/{site}/publications?limit=20`
 Storico delle pubblicazioni: `at`, `actor` (nome del token), `message`, `revision`, `written`, `deleted`, `error`.
+
+### `POST /sites/{site}/rotate-key` (solo agenzia)
+Genera una nuova chiave pubblica. ⚠️ L'HTML con la vecchia chiave smette di funzionare finché non si aggiorna lo script.
 
 ---
 
@@ -232,6 +251,95 @@ Campi: `name` (obbligatorio), `slug` (facoltativo), `description`, `seo` (`{"tit
 
 ### `GET` / `PATCH` / `DELETE /sites/{site}/categories/{slug}`
 Se una categoria viene rinominata o eliminata, gli articoli collegati vengono aggiornati di conseguenza.
+
+---
+
+## Form ed email
+
+I messaggi dei form vengono **salvati sempre**, poi inviati via SMTP del sito, con mittente sul dominio del cliente. Se l'invio fallisce, il messaggio resta salvato con stato `failed` e il cron riprova fino a 5 volte, con attesa crescente.
+
+### `GET /sites/{site}/mail`
+Restituisce le impostazioni SMTP. La password non viene mai restituita: c'è solo `has_password`.
+
+### `PUT /sites/{site}/mail`
+Sostituisce la configurazione SMTP. Per Brevo basta `"preset": "brevo"`, che imposta `smtp-relay.brevo.com`, la porta 587 e STARTTLS:
+
+```json
+{
+  "preset": "brevo",
+  "username": "7a1b2c001@smtp-brevo.com",
+  "password": "xsmtpsib-…",
+  "from_email": "noreply@alservice.it",
+  "from_name": "Al Service",
+  "recipients": ["info@alservice.it"]
+}
+```
+
+| Campo | Note |
+|---|---|
+| `host`, `port`, `encryption` | `encryption`: `tls` (STARTTLS, porta 587), `ssl` (465), `none` |
+| `username`, `password` | per Brevo: login SMTP e **chiave SMTP**. Se ometti `password` resta quella salvata, che è cifrata nel database |
+| `from_email`, `from_name` | mittente: il dominio deve essere autenticato su Brevo (SPF/DKIM) |
+| `recipients` | destinatari predefiniti di tutti i form del sito |
+
+Se il mittente non è sul dominio del sito, la risposta contiene un avviso in `warnings`.
+
+### `POST /sites/{site}/mail/test`
+Invia un'email di prova (body facoltativo: `{"to": "…"}`). In caso di problemi risponde `422 smtp_failed` con l'errore del server, per esempio `SMTP: 535 5.7.8 Authentication failed`.
+
+### `GET /sites/{site}/forms`
+Elenca i moduli del sito. **Si registrano da soli al primo invio**, col nome preso da `data-ssg-form`.
+
+```json
+{
+  "key": "contatti",
+  "name": "Contatti",
+  "enabled": true,
+  "recipients": [],
+  "subject": "",
+  "success_message": "",
+  "autoreply": { "enabled": false, "subject": "", "body": "" }
+}
+```
+
+### `PATCH /sites/{site}/forms/{key}`
+Campi modificabili:
+
+| Campo | Note |
+|---|---|
+| `name` | nome mostrato nelle email |
+| `enabled` | `false` = il modulo rifiuta gli invii |
+| `recipients` | destinatari di questo modulo; vuoto = quelli predefiniti del sito |
+| `subject` | oggetto dell'email; vuoto = "Nuovo messaggio dal sito …" |
+| `success_message` | messaggio mostrato al visitatore dopo l'invio |
+| `autoreply` | `{"enabled": true, "subject": "…", "body": "…"}`: risposta automatica al visitatore, se ha indicato un'email |
+
+### `GET /sites/{site}/submissions`
+Elenca i messaggi ricevuti. Filtri: `form`, `status` (`sent`, `failed`, `pending`, `spam`), `page`, `per_page`.
+
+```json
+{
+  "id": 1,
+  "form": "contatti",
+  "status": "sent",
+  "fields": [
+    { "name": "form_fields[name]", "label": "Nome", "type": "text", "value": "Mario Rossi" },
+    { "name": "form_fields[email]", "label": "Email", "type": "email", "value": "mario.rossi@example.com" }
+  ],
+  "reply_to": "mario.rossi@example.com",
+  "page": "https://alservice.it/",
+  "attempts": 1,
+  "last_error": null,
+  "created_at": "2026-10-26T14:34:34+01:00",
+  "sent_at": "2026-10-26T14:34:34+01:00"
+}
+```
+
+I messaggi con stato `spam` (honeypot compilato o form inviato in meno di 2 secondi) non vengono inviati, ma restano consultabili.
+
+### `GET` / `DELETE /sites/{site}/submissions/{id}`
+### `POST /sites/{site}/submissions/{id}/resend`
+Reinvia il messaggio, per esempio dopo aver corretto l'SMTP o i destinatari.
 
 ---
 
