@@ -7,6 +7,7 @@ declare(strict_types=1);
  *   php clone.php https://sito.it            → sites/sito          (copia fedele)
  *   php rebuild.php sites/sito               → sites/sito-pulito   (ricostruzione)
  *   php rebuild.php sites/sito --out=…
+ *   php rebuild.php sites/sito --embed=https://pannello/e/v1/pk_xxx.js   (collega form e moduli al pannello)
  */
 
 if (PHP_VERSION_ID < 80400) {
@@ -15,7 +16,7 @@ if (PHP_VERSION_ID < 80400) {
 }
 date_default_timezone_set(getenv('TZ') ?: 'Europe/Rome');
 
-foreach (['Http', 'Url', 'Template', 'BlogRenderer', 'Rebuild/Css', 'Rebuild/Theme', 'Rebuild/Icons',
+foreach (['Http', 'Url', 'Template', 'BlogRenderer', 'DeployFiles', 'Rebuild/Css', 'Rebuild/Theme', 'Rebuild/Icons',
              'Rebuild/Extractor', 'Rebuild/Renderer', 'Rebuild/Rebuilder'] as $lib) {
     require __DIR__ . "/lib/$lib.php";
 }
@@ -34,4 +35,4 @@ if (!$src || !is_file("$src/site.json")) {
     exit(1);
 }
 
-$result = (new Rebuild\Rebuilder($src, $opt['out'] ?? "$src-pulito", fn($m) => print("$m\n")))->run();
+$result = (new Rebuild\Rebuilder($src, $opt['out'] ?? "$src-pulito", fn($m) => print("$m\n"), $opt['embed'] ?? null))->run();

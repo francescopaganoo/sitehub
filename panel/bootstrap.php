@@ -12,6 +12,13 @@ declare(strict_types=1);
 
 date_default_timezone_set(getenv('TZ') ?: 'Europe/Rome');
 
+// script da terminale/cron lanciati come root (es. Coolify): si passa all'utente del web server,
+// altrimenti database e chiave verrebbero creati di root e il pannello non potrebbe più scriverli
+if (PHP_SAPI === 'cli' && function_exists('posix_getuid') && posix_getuid() === 0 && ($www = posix_getpwnam('www-data'))) {
+    posix_setgid($www['gid']);
+    posix_setuid($www['uid']);
+}
+
 // classi condivise col clonatore (globali) + classi del pannello (namespace Panel\)
 foreach (['Http', 'Url', 'Template', 'BlogRenderer'] as $lib) {
     require_once __DIR__ . "/../lib/$lib.php";

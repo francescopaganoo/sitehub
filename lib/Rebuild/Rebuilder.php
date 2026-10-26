@@ -28,7 +28,8 @@ final class Rebuilder
     private string $lang = 'it';
     private bool $stickyHeader = false;
 
-    public function __construct(private string $src, private string $out, private Closure $log)
+    /** @param ?string $embed URL dello script del pannello (…/e/v1/pk_x.js): sostituisce quello del clone */
+    public function __construct(private string $src, private string $out, private Closure $log, private ?string $embed = null)
     {
         $this->src = rtrim($src, '/');
         $this->out = rtrim($out, '/');
@@ -43,6 +44,9 @@ final class Rebuilder
         $this->icons = new Icons($this->site['origin'], sys_get_temp_dir() . '/ssg-icons');
         $this->extractor = new Extractor($this->css, $this->icons);
         $this->renderer = new Renderer($this->theme);
+        if ($this->embed) {
+            $this->renderer->formAction = preg_replace('~\.js$~', '/submit', $this->embed);
+        }
 
         if (is_dir("{$this->out}/public")) {
             // si svuota senza cancellare la cartella: un server di anteprima che la serve resta valido
@@ -78,7 +82,9 @@ final class Rebuilder
         $site['mode'] = 'ricostruzione';
         $site['rebuild'] = ['stats' => $stats, 'warnings' => $warnings, 'blog_pages' => count($blogFiles)];
         unset($site['moved_paths']);
+        $site['embed'] = $this->embed ?? $site['embed'] ?? null;
         $this->write('site.json', json_encode($site, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
+        \DeployFiles::write($this->out, $site);
 
         ($this->log)(sprintf('Ricostruito: %d file, %.1f MB (%d avvisi)', $stats['files'], $stats['mb'], count($warnings)));
         foreach ($warnings as $w) {
@@ -113,9 +119,10 @@ final class Rebuilder
             }
         }
 
-        // script dei moduli del pannello (form, …) già presenti nel clone
-        foreach ($home->querySelectorAll('script[src*="/e/v1/"]') as $s) {
-            $this->scripts .= '<script src="' . htmlspecialchars($s->getAttribute('src')) . '" defer></script>' . "\n";
+        // script dei moduli del pannello (form, …): quello indicato, altrimenti quello del clone
+        $embeds = $this->embed ? [$this->embed] : array_map(fn($s) => $s->getAttribute('src'), iterator_to_array($home->querySelectorAll('script[src*="/e/v1/"]')));
+        foreach ($embeds as $src) {
+            $this->scripts .= '<script src="' . htmlspecialchars($src) . '" defer></script>' . "\n";
         }
     }
 

@@ -24,6 +24,7 @@ require __DIR__ . '/lib/Template.php';
 require __DIR__ . '/lib/BlogRenderer.php';
 require __DIR__ . '/lib/BlogExtractor.php';
 require __DIR__ . '/lib/Restructure.php';
+require __DIR__ . '/lib/DeployFiles.php';
 require __DIR__ . '/lib/Cloner.php';
 
 $url = null;
@@ -61,6 +62,7 @@ $report = (new Cloner([
     'local_fonts'   => !isset($opt['no-local-fonts']),
 ]))->run();
 
+DeployFiles::write($out, $report);
 $s = $report['stats'];
 if ($report['forms'] && !$report['embed']) {
     echo "\nATTENZIONE: il sito ha form ma manca --embed: i form non invieranno finché non aggiungi lo script del pannello\n";

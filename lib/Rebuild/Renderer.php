@@ -25,6 +25,8 @@ final class Renderer
     private bool $eager = true;
     private bool $eagerContext = false;
 
+    /** URL di invio dei form (endpoint del pannello); se null resta quello del clone */
+    public ?string $formAction = null;
     public bool $usesMenu = false;
     public bool $usesLightbox = false;
 
@@ -368,7 +370,7 @@ final class Renderer
             $html .= "<div class=\"campo campo--$col\">$label$control</div>";
         }
         $attrs = 'data-ssg-form="' . htmlspecialchars($n['form_key']) . '" method="post"'
-            . ($n['action'] ? ' action="' . htmlspecialchars($n['action']) . '"' : '');
+            . (($this->formAction ?? $n['action']) ? ' action="' . htmlspecialchars($this->formAction ?? $n['action']) . '"' : '');
         return $this->wrap('form', 'modulo', $html, $base, $hide, [
             ' input:not([type=checkbox]), select, textarea' => $this->pickBp($n['field_style'], [...self::TYPO, self::BOX]),
             ' label'  => $this->pickBp($n['label_style'], self::TYPO),
