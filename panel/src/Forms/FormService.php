@@ -259,6 +259,16 @@ final class FormService
         if (!$row) {
             return null;
         }
+        // account SMTP condiviso: le credenziali sono le sue, il sito tiene mittente e destinatari
+        $row['smtp_account'] = null;
+        if ($row['smtp_account_id']) {
+            $account = $this->db->one('SELECT * FROM smtp_accounts WHERE id = ?', [$row['smtp_account_id']]);
+            foreach (['host', 'port', 'encryption', 'username', 'password'] as $k) {
+                $row[$k] = $account[$k];
+            }
+            $row['smtp_account'] = ['id' => (int) $account['id'], 'name' => $account['name']];
+        }
+        unset($row['smtp_account_id']);
         $row['recipients'] = json_decode($row['recipients'], true);
         $row['port'] = (int) $row['port'];
         $row['has_password'] = $row['password'] !== '';
@@ -270,16 +280,25 @@ final class FormService
         return $row;
     }
 
+    /** $s['smtp_account_id'] = usa un account SMTP; altrimenti credenziali proprie (host, porta…). */
     public function saveMailSettings(int $siteId, array $s): void
     {
-        $current = $this->db->one('SELECT password FROM mail_settings WHERE site_id = ?', [$siteId]);
-        $row = [
-            'site_id' => $siteId, 'host' => $s['host'], 'port' => $s['port'], 'encryption' => $s['encryption'],
-            'username' => $s['username'], 'from_email' => $s['from_email'], 'from_name' => $s['from_name'],
+        $common = [
+            'site_id' => $siteId, 'from_email' => $s['from_email'], 'from_name' => $s['from_name'],
             'recipients' => json_encode($s['recipients']), 'updated_at' => date('c'),
-            // password assente = resta quella salvata
-            'password' => array_key_exists('password', $s) ? ($s['password'] === '' ? '' : Crypto::encrypt($s['password'])) : ($current['password'] ?? ''),
         ];
+        if (!empty($s['smtp_account_id'])) {
+            $row = $common + ['smtp_account_id' => (int) $s['smtp_account_id'], 'host' => '', 'port' => 0,
+                'encryption' => '', 'username' => '', 'password' => ''];
+        } else {
+            $current = $this->db->one('SELECT password FROM mail_settings WHERE site_id = ? AND smtp_account_id IS NULL', [$siteId]);
+            $row = $common + [
+                'smtp_account_id' => null, 'host' => $s['host'], 'port' => $s['port'], 'encryption' => $s['encryption'],
+                'username' => $s['username'],
+                // password assente = resta quella salvata (solo se il sito aveva già credenziali proprie)
+                'password' => array_key_exists('password', $s) ? ($s['password'] === '' ? '' : Crypto::encrypt($s['password'])) : ($current['password'] ?? ''),
+            ];
+        }
         $this->db->run('DELETE FROM mail_settings WHERE site_id = ?', [$siteId]);
         $this->db->insert('mail_settings', $row);
     }

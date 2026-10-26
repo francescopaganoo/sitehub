@@ -19,6 +19,7 @@ use Panel\Http\ApiError;
 use Panel\Http\Request;
 use Panel\Http\Response;
 use Panel\Http\Router;
+use Panel\Mail\SmtpAccounts;
 use Panel\Publish\Publisher;
 use Panel\Store;
 
@@ -40,7 +41,9 @@ try {
         foreach ([Api\SitesApi::class, Api\PostsApi::class, Api\CategoriesApi::class] as $api) {
             (new $api($store, $publisher, $principal))->routes($router);
         }
-        (new Api\FormsApi($store, $publisher, $principal, $forms))->routes($router);
+        $smtpAccounts = new SmtpAccounts($db);
+        (new Api\FormsApi($store, $publisher, $principal, $forms, $smtpAccounts))->routes($router);
+        (new Api\SmtpAccountsApi($store, $publisher, $principal, $smtpAccounts))->routes($router);
 
         $response = $router->dispatch($req->withPath($m[1] ?? '/'));
     } else {

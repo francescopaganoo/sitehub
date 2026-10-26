@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Panel\Api;
 
+use Panel\Auth;
 use Panel\Forms\FormService;
 use Panel\Http\ApiError;
 use Panel\Http\Request;
@@ -10,6 +11,7 @@ use Panel\Http\Response;
 use Panel\Http\Router;
 use Panel\Mail\Message;
 use Panel\Mail\Smtp;
+use Panel\Mail\SmtpAccounts;
 use Panel\Mail\SmtpError;
 use Panel\Publish\Publisher;
 use Panel\Store;
@@ -17,9 +19,7 @@ use Panel\Store;
 /** SMTP del sito, configurazione dei moduli e storico dei messaggi ricevuti. */
 final class FormsApi extends Api
 {
-    private const BREVO = ['host' => 'smtp-relay.brevo.com', 'port' => 587, 'encryption' => 'tls'];
-
-    public function __construct(Store $store, Publisher $publisher, array $principal, private FormService $forms)
+    public function __construct(Store $store, Publisher $publisher, array $principal, private FormService $forms, private SmtpAccounts $smtpAccounts)
     {
         parent::__construct($store, $publisher, $principal);
     }
@@ -49,39 +49,38 @@ final class FormsApi extends Api
     }
 
     /**
-     * PUT: configurazione completa. "preset": "brevo" compila host/porta/cifratura.
+     * PUT: configurazione completa. Due modi:
+     *   - "smtp_account_id": N → credenziali di un account SMTP salvato (solo token agenzia)
+     *   - credenziali proprie: host, porta… ("preset": "brevo" compila host/porta/cifratura)
      * La password non viene mai restituita: se omessa resta quella salvata.
      */
     private function saveMail(Request $req): Response
     {
         $site = $this->site($req->param('site'));
         $in = $req->input();
-        if (($in['preset'] ?? null) === 'brevo') {
-            $in += self::BREVO;
-        }
         $errors = [];
         $s = [
-            'host'       => trim((string) ($in['host'] ?? '')),
-            'port'       => (int) ($in['port'] ?? 0),
-            'encryption' => (string) ($in['encryption'] ?? 'tls'),
-            'username'   => trim((string) ($in['username'] ?? '')),
             'from_email' => trim((string) ($in['from_email'] ?? '')),
             'from_name'  => trim(strip_tags((string) ($in['from_name'] ?? ''))),
             'recipients' => is_array($in['recipients'] ?? null) ? array_values(array_unique(array_map('trim', $in['recipients']))) : [],
         ];
-        if (array_key_exists('password', $in)) {
-            $s['password'] = (string) $in['password'];
+
+        if (isset($in['smtp_account_id']) && $in['smtp_account_id'] !== '') {
+            // account SMTP salvato: credenziali condivise, il sito indica solo mittente e destinatari
+            Auth::requireAgency($this->principal);
+            $s['smtp_account_id'] = (int) $in['smtp_account_id'];
+            try {
+                $this->smtpAccounts->get($s['smtp_account_id']);
+            } catch (ApiError) {
+                $errors['smtp_account_id'] = 'Account SMTP inesistente';
+            }
+        } else {
+            $s += SmtpAccounts::validate($in, $errors);
+            if (array_key_exists('password', $in)) {
+                $s['password'] = (string) $in['password'];
+            }
         }
 
-        if (!preg_match('~^[a-z0-9.-]+$~i', $s['host'])) {
-            $errors['host'] = 'Obbligatorio, es. smtp-relay.brevo.com (oppure "preset": "brevo")';
-        }
-        if ($s['port'] < 1 || $s['port'] > 65535) {
-            $errors['port'] = 'Porta non valida (Brevo: 587)';
-        }
-        if (!in_array($s['encryption'], ['tls', 'ssl', 'none'], true)) {
-            $errors['encryption'] = 'Valori ammessi: tls (STARTTLS), ssl, none';
-        }
         if (!filter_var($s['from_email'], FILTER_VALIDATE_EMAIL)) {
             $errors['from_email'] = 'Email mittente non valida (es. noreply@dominio-cliente.it)';
         }

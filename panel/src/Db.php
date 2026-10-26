@@ -126,6 +126,21 @@ final class Db
         CREATE INDEX submissions_site ON submissions(site_id, id DESC);
         CREATE INDEX submissions_rate ON submissions(site_id, ip_hash, created_at);
         SQL,
+        // account SMTP riutilizzabili: un sito usa un account oppure credenziali proprie
+        <<<SQL
+        CREATE TABLE smtp_accounts (
+            id          INTEGER PRIMARY KEY,
+            name        TEXT NOT NULL UNIQUE,
+            host        TEXT NOT NULL,
+            port        INTEGER NOT NULL,
+            encryption  TEXT NOT NULL,
+            username    TEXT NOT NULL DEFAULT '',
+            password    TEXT NOT NULL DEFAULT '',   -- cifrata (Crypto)
+            created_at  TEXT NOT NULL,
+            updated_at  TEXT NOT NULL
+        );
+        ALTER TABLE mail_settings ADD COLUMN smtp_account_id INTEGER REFERENCES smtp_accounts(id);
+        SQL,
     ];
 
     public function __construct(string $path)

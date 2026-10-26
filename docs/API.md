@@ -288,8 +288,29 @@ Sostituisce la configurazione SMTP. Per Brevo basta `"preset": "brevo"`, che imp
 
 Se il mittente non è sul dominio del sito, la risposta contiene un avviso in `warnings`.
 
+Invece delle credenziali si può indicare un **account SMTP salvato** (solo token agenzia): il sito usa le sue credenziali e indica solo mittente e destinatari.
+
+```json
+{ "smtp_account_id": 1, "from_email": "noreply@alservice.it", "from_name": "Al Service", "recipients": ["info@alservice.it"] }
+```
+
+Nella risposta `smtp_account` vale `{"id": 1, "name": "Brevo Plan Studios"}` se il sito usa un account, `null` se ha credenziali proprie.
+
 ### `POST /sites/{site}/mail/test`
 Invia un'email di prova (body facoltativo: `{"to": "…"}`). In caso di problemi risponde `422 smtp_failed` con l'errore del server, per esempio `SMTP: 535 5.7.8 Authentication failed`.
+
+### Account SMTP (solo agenzia)
+Credenziali SMTP riutilizzabili tra i siti, per esempio l'SMTP di un account Brevo. Cambiare la chiave di un account vale subito per tutti i siti che lo usano.
+
+| Metodo | Percorso | Note |
+|---|---|---|
+| `GET` | `/smtp-accounts` | elenco; ogni account indica in `sites` gli slug dei siti che lo usano |
+| `POST` | `/smtp-accounts` | `name`, `host`, `port`, `encryption`, `username`, `password` (oppure `"preset": "brevo"`) |
+| `GET` / `PATCH` | `/smtp-accounts/{id}` | `PATCH` modifica solo i campi inviati; senza `password` resta quella salvata |
+| `DELETE` | `/smtp-accounts/{id}` | `409 account_in_use` se qualche sito lo usa |
+| `POST` | `/smtp-accounts/{id}/test` | `{"to": "…", "from_email": "…"}`: email di prova con le credenziali dell'account |
+
+La password non viene mai restituita: c'è solo `has_password`.
 
 ### `GET /sites/{site}/forms`
 Elenca i moduli del sito. **Si registrano da soli al primo invio**, col nome preso da `data-ssg-form`.
