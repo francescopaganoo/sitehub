@@ -47,6 +47,8 @@ final class Cloner
     /** path originale → path rinominato */
     private array $aliases = [];
     private array $textFiles = [];
+    private ?array $blog = null;
+    private string $siteName = '';
 
     private array $pages = [];
     private array $forms = [];
@@ -90,12 +92,19 @@ final class Cloner
         }
         $this->processPage('/__ssg-not-found-' . bin2hex(random_bytes(4)) . '/', true);
 
+        // prima delle risorse: le immagini degli articoli vanno accodate
+        $blog = (new BlogExtractor($this->origin, $this->public, fn($u) => $this->internalPath($u),
+            fn($s) => $this->rewriteText($s), fn($m) => $this->log($m)))->extract($this->pages);
+
         while ($this->assetQueue) {
             $this->processAsset(array_shift($this->assetQueue));
         }
 
         $this->applyAliases();
         $this->writeSupportFiles();
+        if ($blog) {
+            $this->writeBlog($blog);
+        }
         $report = $this->report(microtime(true) - $started);
         file_put_contents(dirname($this->public) . '/site.json',
             json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
@@ -533,14 +542,9 @@ final class Cloner
         if (!$this->aliases) {
             return;
         }
-        $map = [];
-        foreach ($this->aliases as $from => $to) {
-            $map[$from] = $to;
-            $map[str_replace('/', '\\/', $from)] = str_replace('/', '\\/', $to);
-        }
         foreach (array_keys($this->textFiles) as $file) {
             $content = file_get_contents($file);
-            $new = strtr($content, $map);
+            $new = $this->aliased($content);
             if ($new !== $content) {
                 file_put_contents($file, $new);
             }
@@ -578,6 +582,56 @@ final class Cloner
         }
     }
 
+    private function aliased(string $text): string
+    {
+        $map = [];
+        foreach ($this->aliases as $from => $to) {
+            $map[$from] = $to;
+            $map[str_replace('/', '\\/', $from)] = str_replace('/', '\\/', $to);
+        }
+        return $map ? strtr($text, $map) : $text;
+    }
+
+    // ---------------------------------------------------------------- blog
+
+    /**
+     * Salva dati e template del blog fuori da public/ (sono la "sorgente"),
+     * poi rigenera le pagine del blog col renderer: se i template sono sbagliati si vede subito.
+     */
+    private function writeBlog(array $blog): void
+    {
+        $root = dirname($this->public);
+        $json = fn($v) => json_encode($v, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
+
+        foreach (['content/posts', 'templates'] as $dir) {
+            exec('rm -rf ' . escapeshellarg("$root/$dir"));
+            mkdir("$root/$dir", 0775, true);
+        }
+        foreach ($blog['posts'] as $i => $post) {
+            $blog['posts'][$i] = json_decode($this->aliased(json_encode($post)), true);
+            file_put_contents("$root/content/posts/{$post['slug']}.json", $json($blog['posts'][$i]));
+        }
+        file_put_contents("$root/content/categories.json", $json($blog['categories']));
+        foreach ($blog['templates'] as $name => $tpl) {
+            $blog['templates'][$name] = $this->aliased($tpl);
+            file_put_contents("$root/templates/$name.html", $blog['templates'][$name]);
+        }
+
+        $site = ['domain' => $this->domain, 'site_name' => $blog['site_name'], 'blog' => $blog['config'] + ['static_pages' => []]];
+        $managed = (new BlogRenderer($site, $blog['templates']))->render($blog['posts'], $blog['categories'])['paths'];
+        $site['blog']['static_pages'] = array_values(array_filter($this->pages,
+            fn($p) => !in_array($p, $managed, true) && !preg_match('~/page/\d+/$~', $p)));
+
+        $result = (new BlogRenderer($site, $blog['templates']))->render($blog['posts'], $blog['categories']);
+        foreach ($result['files'] as $file => $content) {
+            $this->write('/' . $file, $content);
+        }
+        $this->log('Blog: rigenerate ' . count($result['files']) . ' pagine dai template');
+
+        $this->siteName = $blog['site_name'];
+        $this->blog = $site['blog'] + ['warnings' => $blog['warnings']];
+    }
+
     // ---------------------------------------------------------------- output
 
     private function writeSupportFiles(): void
@@ -606,6 +660,7 @@ final class Cloner
             'slug'          => $this->cfg['slug'],
             'origin'        => $this->origin,
             'domain'        => $this->domain,
+            'site_name'     => $this->siteName,
             'form_endpoint' => $this->cfg['form_endpoint'],
             'cloned_at'     => date('c'),
             'stats'         => [
@@ -617,6 +672,7 @@ final class Cloner
             'pages'         => $this->pages,
             'forms'         => array_values($this->forms),
             'cookies'       => $this->consent->report(),
+            'blog'          => $this->blog,
             'redirects'     => $this->redirects,
             'external'      => array_keys($this->external),
             'errors'        => $this->errors,

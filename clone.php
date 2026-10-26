@@ -17,6 +17,9 @@ if (PHP_VERSION_ID < 80400) {
 require __DIR__ . '/lib/Http.php';
 require __DIR__ . '/lib/Url.php';
 require __DIR__ . '/lib/Consent.php';
+require __DIR__ . '/lib/Template.php';
+require __DIR__ . '/lib/BlogRenderer.php';
+require __DIR__ . '/lib/BlogExtractor.php';
 require __DIR__ . '/lib/Cloner.php';
 
 $url = null;
