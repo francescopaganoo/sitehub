@@ -49,6 +49,7 @@ final class Cloner
     private array $textFiles = [];
     private ?array $blog = null;
     private string $siteName = '';
+    private ?string $timezone = null;
 
     private array $pages = [];
     private array $forms = [];
@@ -629,6 +630,7 @@ final class Cloner
         $this->log('Blog: rigenerate ' . count($result['files']) . ' pagine dai template');
 
         $this->siteName = $blog['site_name'];
+        $this->timezone = $blog['timezone'] ?? date_default_timezone_get();
         $this->blog = $site['blog'] + ['warnings' => $blog['warnings']];
     }
 
@@ -661,6 +663,7 @@ final class Cloner
             'origin'        => $this->origin,
             'domain'        => $this->domain,
             'site_name'     => $this->siteName,
+            'timezone'      => $this->timezone,
             'form_endpoint' => $this->cfg['form_endpoint'],
             'cloned_at'     => date('c'),
             'stats'         => [

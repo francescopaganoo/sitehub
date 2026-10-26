@@ -68,6 +68,12 @@ final class BlogRenderer
         return ['files' => $files, 'paths' => array_keys($sitemap)];
     }
 
+    /** Un singolo articolo, anche bozza o programmato (anteprima nel pannello). */
+    public function renderPost(array $post, array $categories): string
+    {
+        return Template::render($this->templates['single'], $this->postData($post, array_column($categories, null, 'slug')));
+    }
+
     public function postUrl(array $post): string
     {
         $t = strtotime($post['date']);

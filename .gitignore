@@ -1,3 +1,5 @@
 # output dei cloni: ogni sito ha il suo repo
 /sites/
+# database del pannello
+/panel/data/
 .DS_Store

@@ -51,6 +51,10 @@ final class BlogExtractor
             return null;
         }
         $rawCats = $this->fetchAll('categories') ?? [];
+        $info = $this->siteInfo();
+        if ($info['timezone']) {
+            date_default_timezone_set($info['timezone']);
+        }
 
         $categories = [];
         $catSlugById = [];
@@ -95,7 +99,7 @@ final class BlogExtractor
 
         ($this->log)(sprintf('Blog: %d articoli, %d categorie, permalink %s', count($posts), count($categories), $config['permalink']));
         return ['posts' => $posts, 'categories' => $categories, 'templates' => ['single' => $single, 'archive' => $archive],
-            'config' => $config, 'site_name' => $this->siteName(), 'warnings' => $this->warnings];
+            'config' => $config, 'site_name' => $info['name'], 'timezone' => $info['timezone'], 'warnings' => $this->warnings];
     }
 
     // ---------------------------------------------------------------- dati
@@ -121,10 +125,15 @@ final class BlogExtractor
         return $all;
     }
 
-    private function siteName(): string
+    /**
+     * Nome del sito e fuso orario di WordPress: le date degli articoli sono in ora locale del sito,
+     * senza fuso orario dichiarato, quindi vanno interpretate col suo.
+     */
+    private function siteInfo(): array
     {
-        $info = json_decode(Http::get($this->origin . '/wp-json/', 0)['body'], true);
-        return self::decode($info['name'] ?? '');
+        $info = json_decode(Http::get($this->origin . '/wp-json/', 0)['body'], true) ?: [];
+        $tz = $info['timezone_string'] ?? '';
+        return ['name' => self::decode($info['name'] ?? ''), 'timezone' => in_array($tz, timezone_identifiers_list(), true) ? $tz : null];
     }
 
     private function convertPost(array $p, array $catSlugById): array

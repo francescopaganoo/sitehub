@@ -14,6 +14,9 @@ if (PHP_VERSION_ID < 80400) {
     exit(1);
 }
 
+// fuso di default; se WordPress dichiara il suo, il blog usa quello
+date_default_timezone_set(getenv('TZ') ?: 'Europe/Rome');
+
 require __DIR__ . '/lib/Http.php';
 require __DIR__ . '/lib/Url.php';
 require __DIR__ . '/lib/Consent.php';

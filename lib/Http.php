@@ -40,4 +40,38 @@ final class Http
             sleep(1 + $attempt);
         }
     }
+
+    /**
+     * Richiesta generica per le API (GitHub, Brevo…). Un array come $body viene inviato in JSON.
+     *
+     * @param array<string,string> $headers
+     * @return array{status:int, body:string, json:mixed, error:string}
+     */
+    public static function request(string $method, string $url, array $headers = [], array|string|null $body = null): array
+    {
+        if (is_array($body)) {
+            $body = json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $headers['Content-Type'] = 'application/json';
+        }
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST  => $method,
+            CURLOPT_CONNECTTIMEOUT => 15,
+            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_USERAGENT      => 'static-site-gen-panel',
+            CURLOPT_HTTPHEADER     => array_map(fn($k, $v) => "$k: $v", array_keys($headers), $headers),
+        ]);
+        if ($body !== null) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+        }
+        $resp = curl_exec($ch);
+        $text = is_string($resp) ? $resp : '';
+        return [
+            'status' => (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE),
+            'body'   => $text,
+            'json'   => json_decode($text, true),
+            'error'  => curl_error($ch),
+        ];
+    }
 }
