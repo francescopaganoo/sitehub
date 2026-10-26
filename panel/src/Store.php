@@ -58,6 +58,20 @@ final class Store
         $this->db->update('sites', $this->encode($set, self::SITE_JSON) + ['updated_at' => date('c')], 'id = :id', ['id' => $id]);
     }
 
+    /** Elimina il sito: articoli, categorie, moduli, messaggi e token del sito vanno via con lui (ON DELETE CASCADE). */
+    public function deleteSite(int $id): void
+    {
+        $this->db->run('DELETE FROM sites WHERE id = ?', [$id]);
+    }
+
+    /** Riepilogo dei messaggi dei form (spam escluso), per gli elenchi. */
+    public function submissionStats(int $siteId): array
+    {
+        $row = $this->db->one("SELECT COUNT(*) total, SUM(status IN ('failed', 'pending')) unsent, MAX(created_at) last_at
+            FROM submissions WHERE site_id = ? AND status != 'spam'", [$siteId]);
+        return ['total' => (int) $row['total'], 'unsent' => (int) $row['unsent'], 'last_at' => $row['last_at']];
+    }
+
     public function publications(int $siteId, int $limit): array
     {
         return $this->db->all(sprintf('SELECT at, actor, message, revision, written, deleted, error FROM publish_log

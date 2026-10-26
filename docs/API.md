@@ -103,6 +103,7 @@ Restituisce un sito.
     "origins": ["staging.alservice.it"],
     "blog": { "permalink": "/{slug}/", "category_path": "/category/{slug}/", "index_path": null, "index_title": "Blog", "per_page": 10 },
     "imported": true,
+    "submissions": { "total": 12, "unsent": 0, "last_at": "2026-10-26T14:34:34+01:00" },
     "published_at": "2026-10-26T14:14:00+01:00",
     "created_at": "…",
     "updated_at": "…"
@@ -157,6 +158,9 @@ Rigenera e pubblica tutto il blog. È utile quando `auto_publish` è disattivato
 
 ### `GET /sites/{site}/publications?limit=20`
 Storico delle pubblicazioni: `at`, `actor` (nome del token), `message`, `revision`, `written`, `deleted`, `error`.
+
+### `DELETE /sites/{site}` (solo agenzia)
+Elimina il sito da SiteHub insieme a moduli, messaggi, articoli e token del sito. Il repo e il sito pubblicato non vengono toccati: smettono solo di funzionare form e moduli.
 
 ### `POST /sites/{site}/rotate-key` (solo agenzia)
 Genera una nuova chiave pubblica. ⚠️ L'HTML con la vecchia chiave smette di funzionare finché non si aggiorna lo script.

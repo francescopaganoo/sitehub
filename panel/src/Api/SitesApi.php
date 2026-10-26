@@ -25,6 +25,7 @@ final class SitesApi extends Api
         $r->add('POST', '/sites', fn(Request $q) => $this->create($q));
         $r->add('GET', '/sites/{site}', fn(Request $q) => Response::json(['data' => $this->out($this->site($q->param('site')))]));
         $r->add('PATCH', '/sites/{site}', fn(Request $q) => $this->update($q));
+        $r->add('DELETE', '/sites/{site}', fn(Request $q) => $this->delete($q));
         $r->add('POST', '/sites/{site}/import', fn(Request $q) => $this->import($q));
         $r->add('POST', '/sites/{site}/publish', fn(Request $q) => $this->publish($q));
         $r->add('GET', '/sites/{site}/publications', fn(Request $q) => $this->publications($q));
@@ -119,6 +120,15 @@ final class SitesApi extends Api
         $site = $this->site($site['slug']);
         $publish = isset($in['blog']) && $site['templates'] ? $this->autoPublish($site, 'Pannello: impostazioni blog aggiornate') : null;
         return Response::json(['data' => $this->out($site), 'publish' => $publish]);
+    }
+
+    /** Elimina il sito da SiteHub. Il repo e il sito pubblicato non vengono toccati. */
+    private function delete(Request $req): Response
+    {
+        Auth::requireAgency($this->principal);
+        $site = $this->site($req->param('site'));
+        $this->store->deleteSite($site['id']);
+        return Response::json(['data' => ['deleted' => $site['slug']]]);
     }
 
     private function import(Request $req): Response
@@ -216,6 +226,7 @@ final class SitesApi extends Api
             'origins'      => $site['origins'],
             'blog'         => array_intersect_key($site['config']['blog'] ?? [], array_flip(self::BLOG_FIELDS)) ?: null,
             'imported'     => !empty($site['templates']),
+            'submissions'  => $this->store->submissionStats($site['id']),
             'published_at' => $site['published_at'],
             'created_at'   => $site['created_at'],
             'updated_at'   => $site['updated_at'],
