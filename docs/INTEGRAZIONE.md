@@ -5,6 +5,9 @@ L'HTML può essere fatto come si preferisce: i moduli del pannello (form, cookie
 Servono solo le poche convenzioni descritte qui.
 
 > **Per gli LLM:** questo documento può essere incluso così com'è nelle istruzioni di generazione del sito.
+>
+> La guida completa per realizzare un sito (struttura, SEO, pubblicazione e queste stesse regole) è [GUIDA-SITI.md](GUIDA-SITI.md),
+> pubblicata anche su https://hub.planstudios.it/guida.md.
 
 ## 1. Lo script del pannello (obbligatorio)
 
