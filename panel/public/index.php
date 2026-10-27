@@ -4,7 +4,8 @@ declare(strict_types=1);
 /*
  * Front controller del pannello.
  *   /api/v1/…  API REST JSON (pannello web, gestionale, integrazioni) – token Bearer
- *   /e/v1/…    endpoint pubblici per i siti (script embed, invio form) – chiave pk_…
+ *   /e/v1/…    endpoint pubblici per i siti (script embed, invio form, guida del sito) – chiave pk_…
+ *   /guida.md  guida generica per chi realizza i siti
  *
  * Sviluppo: php -S 0.0.0.0:8080 panel/public/index.php
  */
@@ -15,6 +16,7 @@ use Panel\Api;
 use Panel\Auth;
 use Panel\Embed;
 use Panel\Forms\FormService;
+use Panel\Guide;
 use Panel\Http\ApiError;
 use Panel\Http\Request;
 use Panel\Http\Response;
@@ -30,7 +32,9 @@ try {
     $store = new Store($db);
     $forms = new FormService($db);
 
-    if (preg_match('~^/e/' . Embed::VERSION . '(/.*)$~', $req->path, $m)) {
+    if ($req->path === '/guida.md' && in_array($req->method, ['GET', 'HEAD'], true)) {
+        $response = Embed::guide(Guide::generic(), 'guida-siti.md');
+    } elseif (preg_match('~^/e/' . Embed::VERSION . '(/.*)$~', $req->path, $m)) {
         // endpoint pubblici usati dai siti: niente token, li identifica la chiave pk_…
         $response = (new Embed($store, $forms))->handle($req, $m[1]);
     } elseif (preg_match('~^/api/v1(/.*)?$~', $req->path, $m)) {

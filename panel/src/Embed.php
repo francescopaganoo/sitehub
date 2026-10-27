@@ -13,6 +13,7 @@ use Panel\Http\Response;
  * Endpoint pubblici usati dai siti (senza token: la chiave pk_… nell'HTML identifica il sito).
  *   GET     /e/v1/{pk}.js       script da includere nel sito: config + moduli attivi
  *   POST    /e/v1/{pk}/submit   invio di un form
+ *   GET     /e/v1/{pk}/guida.md guida su misura per chi realizza il sito (moduli attivi, chiave già inserita)
  *
  * La chiave è pubblica: la sicurezza viene dai domini ammessi, dai moduli attivi e dall'antispam.
  */
@@ -32,6 +33,10 @@ final class Embed
         if (preg_match('~^/(pk_[a-f0-9]+)\.js$~', $path, $m) && $req->method === 'GET') {
             return $this->script($m[1], $req);
         }
+        if (preg_match('~^/(pk_[a-f0-9]+)/guida\.md$~', $path, $m) && in_array($req->method, ['GET', 'HEAD'], true)) {
+            $site = $this->store->siteByKey($m[1]) ?? throw ApiError::notFound('Sito');
+            return self::guide(Guide::forSite($site), "guida-{$site['slug']}.md");
+        }
         if (preg_match('~^/(pk_[a-f0-9]+)/submit$~', $path, $m)) {
             return match ($req->method) {
                 'POST'    => $this->submit($m[1], $req),
@@ -40,6 +45,17 @@ final class Embed
             };
         }
         throw new ApiError(404, 'not_found', 'Endpoint non trovato');
+    }
+
+    /** Testo semplice (si legge nel browser e lo legge un LLM), sempre aggiornato, scaricabile anche dal gestionale. */
+    public static function guide(string $text, string $filename): Response
+    {
+        return new Response(200, $text, [
+            'Content-Type'                => 'text/plain; charset=utf-8',
+            'Content-Disposition'         => "inline; filename=\"$filename\"",
+            'Cache-Control'               => 'no-cache',
+            'Access-Control-Allow-Origin' => '*',
+        ]);
     }
 
     public static function scriptUrl(string $publicKey): string

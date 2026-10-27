@@ -1,3 +1,12 @@
+<!--
+  Questo file genera due guide (SiteHub, classe Panel\Guide):
+    https://hub.planstudios.it/guida.md              generica: tutti i blocchi "positivi" (form, blog, consenso) e "generica"
+    https://hub.planstudios.it/e/v1/{chiave}/guida.md su misura per un sito: solo i blocchi che valgono per quel sito
+  Blocchi condizionali: una riga «se:NOME» … una riga «/se», scritte come commenti HTML (vedi sotto); si possono annidare.
+  Nomi: generica, sito, form, no-form, blog, no-blog, consenso, tecnici, sito-consenso
+  Segnaposti della guida su misura: %NOME_SITO%, %DOMINIO%, %MODULI%, %URL_GUIDA%, %CATEGORIE%
+-->
+<!-- se:generica -->
 # Guida per realizzare un sito statico (Plan Studios + SiteHub)
 
 Questa guida è per chi realizza l'HTML di un sito per l'agenzia, a mano o con un LLM (ChatGPT, Claude…).
@@ -5,10 +14,23 @@ Seguendola, ogni sito ha la stessa struttura, funziona su Coolify senza configur
 e si collega a SiteHub (form, banner cookie, blog) senza modifiche.
 
 > **Per chi usa un LLM:** dai all'LLM questo file per intero, insieme ai testi e alle indicazioni grafiche del sito.
-> Quando il sito è registrato su SiteHub, dagli anche le **istruzioni del sito** che trovi nel gestionale
-> (Siti & Domini → Siti statici → il sito → "Istruzioni per un LLM"): contengono la chiave del sito e i moduli attivi.
+> Se il sito è già registrato su SiteHub, usa invece la **guida del sito** che trovi nel gestionale
+> (Siti & Domini → Siti statici → il sito → "Guida del sito"): contiene la chiave del sito e solo le regole dei moduli attivi.
 >
 > **Per l'LLM che legge:** segui tutte le regole di questa guida. Se una richiesta le contraddice, segnalalo prima di procedere.
+<!-- /se -->
+<!-- se:sito -->
+# Guida per realizzare il sito «%NOME_SITO%» (Plan Studios + SiteHub)
+
+Questa guida è per chi realizza o modifica l'HTML del sito **%DOMINIO%**, a mano o con un LLM (ChatGPT, Claude…).
+È su misura: contiene la chiave del sito già inserita e solo le regole che valgono per questo sito.
+
+> **Il sito:** %MODULI%.
+> Se nel gestionale cambiano i moduli o i servizi usati, scarica di nuovo la guida da %URL_GUIDA%
+>
+> **Per l'LLM che legge:** segui tutte le regole di questa guida. Se una richiesta le contraddice, segnalalo prima di procedere.
+> Se il sito esiste già, applica solo quello che manca, senza cambiare grafica, testi e struttura delle pagine.
+<!-- /se -->
 
 Indice
 1. Le regole in breve
@@ -33,16 +55,32 @@ Indice
 
 ## 1. Le regole in breve
 
-1. Solo **HTML, CSS e JavaScript** scritti a mano: niente framework, niente compilazione, niente npm.
-2. **Una cartella per pagina**: `chi-siamo/index.html`, raggiungibile come `/chi-siamo/`.
-3. Link e risorse sempre con **percorsi che partono da `/`**: `/chi-siamo/`, `/assets/img/logo.webp`.
-4. **Un solo `style.css` e un solo `script.js`** nella radice, tutto il resto in `assets/`.
-5. Tutto **nel sito**: font, immagini e icone sono file del sito, mai caricati da altri domini.
-6. Sempre presenti: `404.html`, `privacy-policy/`, `cookie-policy/`, `robots.txt`, `sitemap.xml`, `Dockerfile`, `nginx.conf`.
-7. In ogni pagina, prima di `</body>`, **lo script di SiteHub**.
-8. I form di contatto hanno **`data-ssg-form`** e nessun `action`.
-9. Gli script che tracciano (Analytics, Pixel…) e le mappe/video incorporati **aspettano il consenso** (`data-ssg-consent`).
-10. Dopo ogni modifica a `style.css` o `script.js`: **`./versione.sh`**.
+- Solo **HTML, CSS e JavaScript** scritti a mano: niente framework, niente compilazione, niente npm.
+- **Una cartella per pagina**: `chi-siamo/index.html`, raggiungibile come `/chi-siamo/`.
+- Link e risorse sempre con **percorsi che partono da `/`**: `/chi-siamo/`, `/assets/img/logo.webp`.
+- **Un solo `style.css` e un solo `script.js`** nella radice, tutto il resto in `assets/`.
+- Tutto **nel sito**: font, immagini e icone sono file del sito, mai caricati da altri domini.
+- Sempre presenti: `404.html`, `privacy-policy/`, `cookie-policy/`, `robots.txt`, `sitemap.xml`, `Dockerfile`, `nginx.conf`.
+- In ogni pagina, prima di `</body>`, **lo script di SiteHub**.
+<!-- se:form -->
+- I form di contatto hanno **`data-ssg-form`** e nessun `action`.
+<!-- /se -->
+<!-- se:no-form -->
+- **Niente form di contatto**: il modulo form non è attivo per questo sito.
+<!-- /se -->
+<!-- se:consenso -->
+- Gli script che tracciano (Analytics, Pixel…) e le mappe/video incorporati **aspettano il consenso** (`data-ssg-consent`).
+<!-- /se -->
+<!-- se:tecnici -->
+- **Solo cookie tecnici**: niente Analytics, pixel, mappe o video incorporati, niente banner cookie.
+<!-- /se -->
+<!-- se:blog -->
+- Il blog lo genera SiteHub dai **due template** in `_sitehub/templates/`: niente articoli scritti a mano.
+<!-- /se -->
+<!-- se:no-blog -->
+- **Niente blog**: il sito non ha il blog, niente pagine di articoli.
+<!-- /se -->
+- Dopo ogni modifica a `style.css` o `script.js`: **`./versione.sh`**.
 
 ---
 
@@ -74,10 +112,12 @@ sito/
 │   └── icons/                 eventuali icone svg
 ├── robots.txt
 ├── sitemap.xml
-├── _sitehub/                  solo se il sito ha il blog: template letti da SiteHub (sezione 12), mai pubblicati
+<!-- se:blog -->
+├── _sitehub/                  template del blog letti da SiteHub (sezione 12), mai pubblicati
 │   └── templates/
 │       ├── articolo.html
 │       └── blog.html
+<!-- /se -->
 ├── Dockerfile                 pubblicazione su Coolify (vedi sezione 13)
 ├── nginx.conf
 ├── .dockerignore
@@ -200,7 +240,9 @@ Regole:
 
 - Un solo file, `script.js`, caricato con `defer`. Niente librerie.
 - Solo comportamenti: menu mobile, galleria, scorrimento, piccoli effetti. I contenuti stanno nell'HTML.
+<!-- se:form -->
 - **Non gestire l'invio dei form**: lo fa SiteHub (sezione 12).
+<!-- /se -->
 - **Non creare banner cookie** e non leggere o scrivere cookie: lo fa SiteHub.
 - Il codice deve funzionare anche se un elemento non è presente nella pagina (controlla prima di usarlo).
 
@@ -255,6 +297,9 @@ User-agent: *
 Allow: /
 
 Sitemap: https://www.dominio-cliente.it/sitemap.xml
+<!-- se:blog -->
+Sitemap: https://www.dominio-cliente.it/sitemap-blog.xml
+<!-- /se -->
 ```
 
 - `sitemap.xml` con **tutte** le pagine (non la 404). Quando aggiungi una pagina, aggiungila qui:
@@ -281,7 +326,9 @@ Sitemap: https://www.dominio-cliente.it/sitemap.xml
 - Link "Vai al contenuto" all'inizio della pagina (`.skip-link`, visibile al focus).
 - Pulsanti veri (`<button>`) per le azioni, link (`<a>`) per andare altrove.
 - Il menu mobile ha `aria-expanded` e `aria-controls` sul pulsante che lo apre.
+<!-- se:form -->
 - Ogni campo dei form ha una `<label>` (anche nascosta con `.sr-only`).
+<!-- /se -->
 
 ---
 
@@ -290,15 +337,27 @@ Sitemap: https://www.dominio-cliente.it/sitemap.xml
 - **`404.html`** nella radice: stesso header e footer del sito, un messaggio chiaro e un link alla home, `noindex`.
   Usa percorsi da `/` (la 404 viene mostrata a qualunque indirizzo).
 - **`privacy-policy/`**: informativa sul trattamento dei dati, in particolare quelli del form di contatto.
+<!-- se:generica -->
 - **`cookie-policy/`**: quali cookie usa il sito. Se il sito non usa Analytics, pixel, mappe o video incorporati,
   usa solo cookie tecnici e va scritto così, senza banner. Se li usa, elencali e aggiungi il link per cambiare le preferenze
   (`<a href="/#cookie-settings">cambia le preferenze sui cookie</a>`).
+<!-- /se -->
+<!-- se:sito-consenso -->
+- **`cookie-policy/`**: elenca i cookie tecnici e quelli dei servizi usati dal sito (%CATEGORIE%), con il link per cambiare le preferenze
+  (`<a href="/#cookie-settings">cambia le preferenze sui cookie</a>`).
+<!-- /se -->
+<!-- se:tecnici -->
+- **`cookie-policy/`**: il sito usa **solo cookie tecnici** e va scritto così: nessun cookie di profilazione, statistico o pubblicitario,
+  per questo nessun banner di consenso.
+<!-- /se -->
 - I testi legali li fornisce o approva il cliente: non inventare dati societari.
 
 Il **footer** di tutte le pagine contiene almeno:
 - ragione sociale, indirizzo, **partita IVA**, telefono ed email;
 - link a **Privacy Policy** e **Cookie Policy**;
+<!-- se:consenso -->
 - se il sito usa cookie che richiedono consenso, il link **Preferenze cookie** (sezione 12).
+<!-- /se -->
 
 ---
 
@@ -306,6 +365,9 @@ Il **footer** di tutte le pagine contiene almeno:
 
 SiteHub è il sistema dell'agenzia che gestisce **form di contatto, banner cookie e blog** dei siti statici.
 L'HTML non contiene logica per questi moduli: bastano le poche convenzioni che seguono.
+<!-- se:sito -->
+Per questo sito: %MODULI%.
+<!-- /se -->
 
 ### Lo script (obbligatorio)
 
@@ -315,10 +377,16 @@ Una riga, **identica in tutte le pagine** (comprese 404 e pagine legali), come u
 <script src="https://hub.planstudios.it/e/v1/pk_XXXXXXXX.js" defer></script>
 ```
 
+<!-- se:generica -->
 La riga esatta, con la chiave `pk_…` del sito, è nel gestionale nella pagina del sito ("Codice da inserire nel sito").
 Se il sito non è ancora registrato, lascia un commento `<!-- script SiteHub -->` al suo posto: si aggiunge dopo.
+<!-- /se -->
+<!-- se:sito -->
+È la riga esatta di questo sito: copiala così com'è.
+<!-- /se -->
 La chiave è pubblica: può stare nell'HTML.
 
+<!-- se:form -->
 ### Form di contatto
 
 ```html
@@ -357,9 +425,22 @@ La chiave è pubblica: può stare nell'HTML.
 
 - Facoltativo: `data-ssg-redirect="/grazie/"` sul `<form>` porta a una pagina di ringraziamento dopo l'invio.
 - Stile: i messaggi automatici hanno le classi `.ssg-msg`, `.ssg-msg-ok`, `.ssg-msg-ko`, se vuoi adattarli alla grafica.
+<!-- /se -->
+<!-- se:no-form -->
+### Form di contatto
 
+Il modulo form **non è attivo** per questo sito: non aggiungere form di contatto.
+Per i contatti usa link a telefono (`tel:`), email (`mailto:`) ed eventualmente WhatsApp.
+Se serve un form, chiedi all'agenzia di attivare il modulo: questa guida si aggiorna con le istruzioni.
+<!-- /se -->
+
+<!-- se:consenso -->
 ### Cookie e servizi di terze parti
 
+<!-- se:sito-consenso -->
+Questo sito usa servizi che richiedono il consenso dei visitatori: **%CATEGORIE%**.
+
+<!-- /se -->
 Il banner cookie lo mostra SiteHub, e **solo** se il sito usa cookie che richiedono consenso. Non crearne uno.
 
 Ogni script che traccia i visitatori (Google Analytics, Tag Manager, Meta Pixel, Hotjar, Clarity…)
@@ -393,7 +474,20 @@ si scrive con `type="text/plain"` e la categoria in `data-ssg-consent`: parte so
   (se manca, SiteHub mostra un piccolo pulsante fisso per riaprire le preferenze).
 - Facoltativo, per usare il font del sito nel banner: `:root { --ssg-font: "NomeFont", sans-serif; }`.
 - In alternativa a una mappa incorporata va benissimo un link "Apri in Google Maps": nessun consenso necessario.
+<!-- /se -->
+<!-- se:tecnici -->
+### Cookie e servizi di terze parti
 
+Questo sito usa **solo cookie tecnici**: nessun banner, nessun consenso da chiedere.
+
+- Non aggiungere script che tracciano i visitatori (Google Analytics, Tag Manager, Meta Pixel, Hotjar, Clarity…).
+- Non incorporare mappe o video (Google Maps, YouTube, Vimeo): usa un link "Apri in Google Maps" o un link al video.
+- Non caricare font, icone o altre risorse da altri domini.
+- Non creare banner cookie e non leggere o scrivere cookie.
+- Se servono statistiche, mappe o video incorporati, chiedi all'agenzia: si attivano nel gestionale e questa guida si aggiorna con le istruzioni.
+<!-- /se -->
+
+<!-- se:blog -->
 ### Blog
 
 Gli articoli li scrive l'agenzia dal gestionale; SiteHub genera le pagine del blog **con la grafica del sito**
@@ -547,6 +641,13 @@ Regole:
 - Niente articoli scritti a mano dentro `/blog/`: verrebbero sostituiti.
 - Quando i template sono nel repo, il blog si collega dal gestionale (pagina del sito → Blog → **Collega il blog**):
   SiteHub controlla i template e segnala cosa manca (es. "manca {{{content}}} in articolo.html") o i segnaposti scritti male.
+<!-- /se -->
+<!-- se:no-blog -->
+### Blog
+
+Questo sito **non ha il blog**: non creare pagine di articoli, elenchi di articoli o la cartella `_sitehub/templates/`.
+Se il cliente vuole un blog, l'agenzia lo attiva nel gestionale e questa guida si aggiorna con le istruzioni.
+<!-- /se -->
 
 ---
 
@@ -662,9 +763,16 @@ echo "style.css?v=$css  script.js?v=$js"
 1. Repo su GitHub (uno per sito), ramo `main`.
 2. Coolify: nuova applicazione dal repo, build pack **Dockerfile**, porta **80**, dominio del cliente (con e senza `www`).
 3. Verifica che **Auto Deploy** sia attivo: ogni push su `main` (e ogni articolo pubblicato da SiteHub) va online da solo.
+<!-- se:generica -->
 4. Registra il sito su SiteHub dal gestionale e inserisci lo script con la chiave (sezione 12).
+<!-- /se -->
+<!-- se:sito -->
+4. Il sito è già registrato su SiteHub: lo script della sezione 12 è quello giusto.
+<!-- /se -->
+<!-- se:form -->
 5. Prova del sito su un dominio provvisorio (es. `cliente.planstudios.it`): aggiungilo ai "Domini di prova" del sito nel gestionale,
    altrimenti i form da quel dominio vengono rifiutati.
+<!-- /se -->
 
 ---
 
@@ -673,12 +781,24 @@ echo "style.css?v=$css  script.js?v=$js"
 - Framework, librerie, CDN, file da compilare, npm.
 - Google Fonts, Adobe Fonts, Font Awesome o altre risorse caricate da altri domini.
 - Banner cookie propri o di terzi (Iubenda, Cookiebot, CookieYes, plugin…).
+<!-- se:consenso -->
 - Script che tracciano o mappe/video incorporati senza `data-ssg-consent`.
+<!-- /se -->
+<!-- se:tecnici -->
+- Script che tracciano, mappe o video incorporati (il sito usa solo cookie tecnici).
+<!-- /se -->
+<!-- se:form -->
 - Form con `action`, JavaScript proprio per l'invio, servizi esterni per i form, captcha.
+<!-- /se -->
+<!-- se:no-form -->
+- Form di contatto (il modulo form non è attivo) e servizi esterni per i form.
+<!-- /se -->
 - Pagine `.html` nella radice (`chi-siamo.html`): sempre `chi-siamo/index.html`.
 - Link relativi (`../`, `immagini/foto.jpg`): sempre da `/`.
+<!-- se:blog -->
 - Pagine di articoli del blog scritte a mano, o file dentro `/blog/`.
-- Togliere `_sitehub` da `Dockerfile`, `.dockerignore` o `nginx.conf`: contiene anche le bozze degli articoli.
+<!-- /se -->
+- Togliere `_sitehub` da `Dockerfile`, `.dockerignore` o `nginx.conf`: se il sito ha il blog, contiene anche le bozze degli articoli.
 - Testi segnaposto (lorem ipsum) o dati inventati (indirizzi, P.IVA, recensioni) lasciati nel sito pubblicato.
 - Immagini pesanti (oltre 400 KB) o senza `width`, `height` e `alt`.
 
@@ -697,17 +817,30 @@ Prima di consegnare il sito:
 - [ ] Font e immagini caricati solo dal sito (nessuna richiesta ad altri domini, tranne SiteHub e i servizi con consenso).
 - [ ] Menu mobile e form usabili da tastiera.
 - [ ] Script di SiteHub in tutte le pagine, identico, prima di `</body>`.
+<!-- se:form -->
 - [ ] Form con `data-ssg-form`, senza `action`, con label e casella privacy; invio di prova riuscito.
+<!-- /se -->
+<!-- se:generica -->
 - [ ] Footer con P.IVA, Privacy Policy, Cookie Policy (e Preferenze cookie se servono) in tutte le pagine.
+<!-- /se -->
+<!-- se:sito-consenso -->
+- [ ] Footer con P.IVA, Privacy Policy, Cookie Policy e Preferenze cookie in tutte le pagine; script e mappe con `data-ssg-consent`.
+<!-- /se -->
+<!-- se:tecnici -->
+- [ ] Footer con P.IVA, Privacy Policy e Cookie Policy in tutte le pagine; nessuna richiesta ad altri domini tranne SiteHub.
+<!-- /se -->
 - [ ] `./versione.sh` lanciato dopo l'ultima modifica a CSS o JS.
 - [ ] `Dockerfile`, `nginx.conf`, `.dockerignore` presenti, con le righe per `_sitehub`.
-- [ ] Se c'è il blog: `_sitehub/templates/articolo.html` e `blog.html` con header e footer aggiornati, voce "Blog" nel menu,
+<!-- se:blog -->
+- [ ] Blog: `_sitehub/templates/articolo.html` e `blog.html` con header e footer aggiornati, voce "Blog" nel menu,
       `sitemap-blog.xml` in `robots.txt`, stile degli articoli in `style.css`.
+<!-- /se -->
 
 ---
 
 ## 17. Esempio di richiesta a un LLM
 
+<!-- se:generica -->
 > Realizza il sito statico di **[nome azienda]** seguendo tutte le regole della guida allegata (GUIDA-SITI.md).
 >
 > - Pagine: home, chi siamo, servizi, contatti, privacy policy, cookie policy, 404.
@@ -721,4 +854,23 @@ Prima di consegnare il sito:
 > Restituisci tutti i file con la struttura di cartelle della guida, compresi Dockerfile, nginx.conf, .dockerignore, versione.sh e README.md.
 > Alla fine elenca le pagine create e i controlli della sezione 16 che hai verificato.
 
-Quando il sito è registrato su SiteHub, aggiungi alla richiesta le istruzioni del sito copiate dal gestionale.
+Quando il sito è registrato su SiteHub, usa la guida del sito al posto di questa.
+<!-- /se -->
+<!-- se:sito -->
+Sito nuovo:
+
+> Realizza il sito statico di **%NOME_SITO%** (%DOMINIO%) seguendo tutte le regole della guida allegata.
+>
+> - Pagine: home, chi siamo, servizi, contatti, privacy policy, cookie policy, 404.
+> - Testi: [incolla i testi o allega il documento].
+> - Grafica: colori [#…], font [nome, file allegati], stile [descrizione o riferimenti].
+> - Immagini: [allegate / da indicare con segnaposto e dimensioni].
+>
+> Restituisci tutti i file con la struttura di cartelle della guida, compresi Dockerfile, nginx.conf, .dockerignore, versione.sh e README.md.
+> Alla fine elenca le pagine create e i controlli della sezione 16 che hai verificato.
+
+Sito esistente (es. dopo aver attivato un modulo nel gestionale):
+
+> Ti allego i file del sito **%NOME_SITO%** e la sua guida. Applica le regole della guida che il sito non rispetta ancora,
+> senza cambiare grafica, testi e struttura delle pagine. Alla fine elenca i file modificati e cosa hai cambiato.
+<!-- /se -->

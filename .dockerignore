@@ -3,5 +3,5 @@ docs/
 .git/
 panel/data/
 *.md
-# la guida per chi realizza i siti va pubblicata (hub.planstudios.it/guida.md)
+# la guida per chi realizza i siti la genera il pannello (/guida.md)
 !docs/GUIDA-SITI.md

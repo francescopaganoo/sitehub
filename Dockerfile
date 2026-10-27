@@ -23,7 +23,6 @@ RUN a2enmod headers \
     '  # Apache non passa l header Authorization a PHP se non lo si chiede' \
     '  SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1' \
     '  ServerSignature Off' \
-    '  AddType "text/plain; charset=utf-8" .md' \
     '</VirtualHost>' > /etc/apache2/sites-available/000-default.conf \
  && echo 'ServerTokens Prod' >> /etc/apache2/apache2.conf \
  && printf '%s\n' 'expose_php = Off' 'display_errors = Off' 'log_errors = On' > /usr/local/etc/php/conf.d/panel.ini
@@ -31,8 +30,8 @@ RUN a2enmod headers \
 WORKDIR /app
 COPY lib/ lib/
 COPY panel/ panel/
-# guida per chi realizza i siti: https://hub.planstudios.it/guida.md
-COPY docs/GUIDA-SITI.md panel/public/guida.md
+# guida per chi realizza i siti: /guida.md e /e/v1/{chiave}/guida.md (classe Panel\Guide)
+COPY docs/GUIDA-SITI.md docs/GUIDA-SITI.md
 RUN mkdir -p panel/data && chown -R www-data:www-data panel/data
 
 ENV TZ=Europe/Rome

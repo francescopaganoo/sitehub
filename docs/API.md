@@ -392,6 +392,17 @@ Reinvia il messaggio, per esempio dopo aver corretto l'SMTP o i destinatari.
 
 ---
 
+## Guida per chi realizza i siti
+
+Pubbliche, senza token, in testo semplice (si leggono nel browser o si danno a un LLM):
+
+- `GET /guida.md`: guida generica (`docs/GUIDA-SITI.md`), con tutte le regole.
+- `GET /e/v1/{pk}/guida.md`: guida del sito, con chiave, dominio e nome già inseriti e solo le regole che valgono per lui:
+  form attivo o no, blog attivo o no, cookie solo tecnici oppure servizi con consenso (le categorie in `cookies.categories`).
+  Si rigenera a ogni richiesta: se cambiano i moduli, il link dà subito la versione aggiornata.
+
+---
+
 ## Esempio completo (curl)
 
 ```bash
