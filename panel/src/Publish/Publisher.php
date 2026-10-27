@@ -9,11 +9,12 @@ use Panel\Http\ApiError;
 use Panel\Store;
 
 /**
- * Dal database al repo del sito:
+ * Dal database al repo del sito (percorsi per un sito clonato; per uno fatto a mano vedi Layout):
  *   public/…                    pagine del blog generate dai template
  *   content/posts/{slug}.json   copia dei dati (backup versionato, leggibile senza pannello)
  *   content/categories.json
  * I file generati in precedenza e non più prodotti (articolo cancellato, slug cambiato) vengono rimossi.
+ * I template si rileggono dal repo a ogni pubblicazione: chi modifica il sito li aggiorna lì.
  */
 final class Publisher
 {
@@ -42,7 +43,8 @@ final class Publisher
             throw new ApiError(409, 'templates_missing', 'Il sito non ha template del blog: esegui prima l\'import');
         }
         return new BlogRenderer(
-            ['domain' => $site['domain'], 'site_name' => $site['config']['site_name'] ?? $site['name'], 'blog' => $site['config']['blog'] ?? []],
+            ['domain' => $site['domain'], 'site_name' => $site['config']['site_name'] ?? $site['name'],
+                'blog' => ($site['config']['blog'] ?? []) + ['sitemap_file' => Layout::of($site)->sitemap]],
             $site['templates']
         );
     }
@@ -52,15 +54,16 @@ final class Publisher
     {
         $posts = $this->store->allPosts($site['id']);
         $categories = $this->store->categories($site['id']);
+        $layout = Layout::of($site);
 
         $files = [];
         foreach ($this->renderer($site)->render($posts, $categories)['files'] as $path => $html) {
-            $files["public/$path"] = $html;
+            $files[$layout->pages . $path] = $html;
         }
         foreach ($posts as $post) {
-            $files["content/posts/{$post['slug']}.json"] = json_encode(self::exportPost($post), self::JSON) . "\n";
+            $files["{$layout->data}content/posts/{$post['slug']}.json"] = json_encode(self::exportPost($post), self::JSON) . "\n";
         }
-        $files['content/categories.json'] = json_encode($categories, self::JSON) . "\n";
+        $files["{$layout->data}content/categories.json"] = json_encode($categories, self::JSON) . "\n";
         return $files;
     }
 
@@ -68,6 +71,7 @@ final class Publisher
     public function publish(array $site, string $actor, string $message): array
     {
         try {
+            $site = $this->refreshTemplates($site);
             $files = $this->build($site);
             $deletes = array_values(array_diff($site['manifest'] ?? [], array_keys($files)));
             $result = self::target($site)->commit($files, $deletes, $message);
@@ -81,49 +85,95 @@ final class Publisher
         return $result;
     }
 
+    /** Template aggiornati dal repo; se sono cambiati vengono controllati e salvati. */
+    private function refreshTemplates(array $site): array
+    {
+        if (empty($site['templates'])) {
+            throw new ApiError(409, 'templates_missing', 'Il blog del sito non è ancora collegato: aggiungi i template al repo (guida, sezione Blog) e collegalo');
+        }
+        $layout = Layout::of($site);
+        $target = self::target($site);
+        $single = $target->read($layout->single);
+        $archive = $target->read($layout->archive);
+        if (!$single || !$archive) {
+            throw new ApiError(409, 'templates_missing', "Nel repo mancano i template del blog ($layout->single, $layout->archive)");
+        }
+        if ($single === ($site['templates']['single'] ?? null) && $archive === ($site['templates']['archive'] ?? null)) {
+            return $site;
+        }
+        $check = Layout::check($single, $archive, $layout);
+        if ($check['errors']) {
+            throw new ApiError(422, 'templates_invalid', 'Template del blog da correggere: ' . implode('; ', $check['errors']));
+        }
+        $site['templates'] = ['single' => $single, 'archive' => $archive];
+        $this->store->updateSite($site['id'], ['templates' => $site['templates']]);
+        return $site;
+    }
+
     public function preview(array $site, array $post): string
     {
         return $this->renderer($site)->renderPost($post, $this->store->categories($site['id']));
     }
 
     /**
-     * Importa nel pannello un sito prodotto dal clonatore (site.json, templates/, content/).
+     * Collega il blog del sito leggendo il repo:
+     *   - sito clonato: site.json, templates/, content/ prodotti dal clonatore
+     *   - sito fatto a mano: _sitehub/templates/articolo.html e blog.html (ed eventuali articoli già in _sitehub/content/)
      *
-     * @return array{posts:int, categories:int}
+     * @return array{posts:int, categories:int, layout:string, warnings:string[]}
      */
     public function import(array $site, bool $replace): array
     {
         $target = self::target($site);
         $siteJson = json_decode($target->read('site.json') ?? '', true);
-        $single = $target->read('templates/single.html');
-        $archive = $target->read('templates/archive.html');
-        if (!is_array($siteJson) || !$single || !$archive) {
-            throw new ApiError(422, 'import_failed', 'Nel repo mancano site.json o i template del blog (templates/single.html, archive.html)');
+        $layout = is_array($siteJson) ? Layout::clone() : Layout::static();
+        $single = $target->read($layout->single);
+        $archive = $target->read($layout->archive);
+        if (!$single || !$archive) {
+            throw new ApiError(422, 'import_failed', is_array($siteJson)
+                ? 'Nel repo mancano i template del blog (templates/single.html, templates/archive.html)'
+                : 'Nel repo mancano i template del blog: _sitehub/templates/articolo.html e _sitehub/templates/blog.html (vedi la guida, sezione Blog)');
+        }
+        $check = Layout::check($single, $archive, $layout);
+        if ($check['errors']) {
+            throw new ApiError(422, 'templates_invalid', 'Template del blog da correggere: ' . implode('; ', $check['errors']));
         }
 
-        $categories = json_decode($target->read('content/categories.json') ?? '[]', true) ?: [];
+        $categories = json_decode($target->read("{$layout->data}content/categories.json") ?? '[]', true) ?: [];
         $posts = [];
-        foreach ($target->list('content/posts') as $path) {
+        foreach ($target->list("{$layout->data}content/posts") as $path) {
             $post = json_decode($target->read($path) ?? '', true);
             if (is_array($post) && isset($post['id'], $post['slug'])) {
                 $posts[] = $post;
             }
         }
 
+        // repo senza articoli (es. sito fatto a mano appena collegato): quelli già scritti nel pannello restano
+        $repoHasData = $posts || $categories;
         $hasData = $this->store->allPosts($site['id']) || $this->store->categories($site['id']);
-        if ($hasData && !$replace) {
+        if ($repoHasData && $hasData && !$replace) {
             throw new ApiError(409, 'already_imported', 'Il sito ha già articoli: usa replace=true per sovrascriverli');
         }
 
-        $blog = $siteJson['blog'] ?? [];
-        unset($blog['warnings']);
         $config = ($site['config'] ?? []) + ['auto_publish' => true];
-        $config['site_name'] = $siteJson['site_name'] ?? $site['name'];
-        $config['timezone'] = $siteJson['timezone'] ?? date_default_timezone_get();
-        $config['blog'] = $blog;
+        $config['layout'] = $layout->name;
+        if (is_array($siteJson)) {
+            $blog = $siteJson['blog'] ?? [];
+            unset($blog['warnings']);
+            $config['site_name'] = $siteJson['site_name'] ?? $site['name'];
+            $config['timezone'] = $siteJson['timezone'] ?? date_default_timezone_get();
+            $config['blog'] = $blog;
+        } else {
+            // sito fatto a mano: blog sotto /blog/; le impostazioni già scelte nel pannello restano
+            $config['site_name'] = $config['site_name'] ?? $site['name'];
+            $config['blog'] = array_merge(Layout::STATIC_BLOG, $config['blog'] ?? []);
+            if (Layout::staticBlogError($config['blog'])) {
+                $config['blog'] = Layout::STATIC_BLOG;
+            }
+        }
 
-        $this->db->transaction(function () use ($site, $replace, $posts, $categories, $config, $single, $archive) {
-            if ($replace) {
+        $this->db->transaction(function () use ($site, $replace, $repoHasData, $posts, $categories, $config, $single, $archive) {
+            if ($replace && $repoHasData) {
                 $this->db->run('DELETE FROM posts WHERE site_id = ?', [$site['id']]);
                 $this->db->run('DELETE FROM categories WHERE site_id = ?', [$site['id']]);
             }
@@ -149,7 +199,7 @@ final class Publisher
         $site = $this->store->site($site['slug'], ['site_id' => null]);
         $this->store->updateSite($site['id'], ['manifest' => array_keys($this->build($site))]);
 
-        return ['posts' => count($posts), 'categories' => count($categories)];
+        return ['posts' => count($posts), 'categories' => count($categories), 'layout' => $layout->name, 'warnings' => $check['warnings']];
     }
 
     /** Ordine dei campi fisso: lo stesso file non deve cambiare tra una pubblicazione e l'altra. */

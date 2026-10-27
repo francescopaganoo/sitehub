@@ -9,6 +9,7 @@ use Panel\Http\ApiError;
 use Panel\Http\Request;
 use Panel\Http\Response;
 use Panel\Http\Router;
+use Panel\Publish\Layout;
 use Panel\Slug;
 
 final class SitesApi extends Api
@@ -117,6 +118,9 @@ final class SitesApi extends Api
         if (isset($config['blog']['permalink']) && !str_contains($config['blog']['permalink'], '{slug}')) {
             $errors['blog.permalink'] = 'Deve contenere {slug}';
         }
+        if (isset($in['blog']) && ($config['layout'] ?? null) === 'static' && ($error = Layout::staticBlogError($config['blog'] ?? []))) {
+            $errors['blog'] = $error;
+        }
         if ($errors) {
             throw ApiError::validation($errors);
         }
@@ -143,7 +147,11 @@ final class SitesApi extends Api
         $site = $this->site($req->param('site'));
         $replace = filter_var($req->input()['replace'] ?? $req->query['replace'] ?? false, FILTER_VALIDATE_BOOL);
         $result = $this->publisher->import($site, $replace);
-        return Response::json(['data' => $result]);
+        // sito fatto a mano: le pagine del blog (elenco, sitemap-blog.xml) non esistono ancora, si pubblicano subito
+        $publish = $result['layout'] === 'static'
+            ? $this->autoPublish($this->site($site['slug']), 'Pannello: blog collegato', true)
+            : null;
+        return Response::json(['data' => $result, 'publish' => $publish]);
     }
 
     private function publish(Request $req): Response
@@ -296,6 +304,7 @@ final class SitesApi extends Api
             'cookies'      => self::cookieSettings($site),
             'blog'         => array_intersect_key($site['config']['blog'] ?? [], array_flip(self::BLOG_FIELDS)) ?: null,
             'imported'     => !empty($site['templates']),
+            'layout'       => $site['config']['layout'] ?? null, // clone | static (dopo l'import del blog)
             'submissions'  => $this->store->submissionStats($site['id']),
             'published_at' => $site['published_at'],
             'created_at'   => $site['created_at'],

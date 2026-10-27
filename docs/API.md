@@ -58,7 +58,7 @@ Con un token di sito, gli altri siti risultano **inesistenti** (404), non vietat
 | 404 | `not_found` | sito / articolo / categoria / endpoint inesistente |
 | 405 | `method_not_allowed` | metodo HTTP non previsto per quell'URL |
 | 409 | `already_imported`, `templates_missing` | stato del sito non compatibile con l'operazione |
-| 422 | `validation_failed`, `invalid_target`, `import_failed` | dati non validi (dettaglio in `fields`) |
+| 422 | `validation_failed`, `invalid_target`, `import_failed`, `templates_invalid` | dati non validi (dettaglio in `fields` o nel messaggio) |
 | 502 | `github_error` | GitHub ha rifiutato la pubblicazione |
 | 500 | `internal_error` | errore del pannello |
 
@@ -163,9 +163,19 @@ Campi di `blog`:
 ⚠️ Se cambi `permalink` o `category_path`, cambiano gli URL degli articoli già indicizzati.
 
 ### `POST /sites/{site}/import` (solo agenzia)
-Legge dal repo del sito i dati prodotti dal clonatore (`site.json`, `templates/`, `content/`) e li carica nel pannello. Se il sito ha già articoli serve `{"replace": true}`.
+Collega il blog leggendo il repo del sito. Riconosce da solo il tipo di sito:
 
-Risposta: `{"data": {"posts": 12, "categories": 3}}`
+- **sito clonato** (c'è `site.json`): template `templates/single.html` e `archive.html`, articoli in `content/`, pagine generate in `public/`;
+- **sito fatto a mano**: template `_sitehub/templates/articolo.html` e `blog.html` (vedi `GUIDA-SITI.md`, sezione Blog), pagine generate nella radice sotto `/blog/`, sitemap del blog in `sitemap-blog.xml`, copia degli articoli in `_sitehub/content/`. Il blog viene pubblicato subito (`publish` nella risposta).
+
+I template vengono controllati: se manca qualcosa di indispensabile la risposta è `422 templates_invalid` con l'elenco (es. "manca {{{content}}} in articolo.html"); i problemi minori arrivano in `warnings`. Se il sito ha già articoli serve `{"replace": true}`.
+
+```json
+{ "data": { "posts": 0, "categories": 0, "layout": "static", "warnings": [] }, "publish": { "revision": "…", "written": 3, "deleted": 0 } }
+```
+
+Dopo l'import i template si rileggono dal repo a ogni pubblicazione: chi modifica header o footer aggiorna i template nel repo e la pubblicazione successiva li usa (se non sono validi, la pubblicazione si ferma con `templates_invalid`).
+Nei siti fatti a mano `permalink` e `category_path` devono stare sotto `index_path` (es. `/blog/{slug}/`): un articolo non può sostituire una pagina del sito.
 
 ### `POST /sites/{site}/publish`
 Rigenera e pubblica tutto il blog. È utile quando `auto_publish` è disattivato, per ripetere una pubblicazione fallita o per far uscire gli articoli programmati. Body facoltativo: `{"message": "testo del commit"}`.

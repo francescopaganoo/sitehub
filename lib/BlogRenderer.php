@@ -11,6 +11,7 @@ declare(strict_types=1);
  *   category_path  "/category/{slug}/"
  *   per_page       10
  *   static_pages   pagine non gestite dal blog (per la sitemap)
+ *   sitemap_file   "sitemap.xml"; i siti fatti a mano usano "sitemap-blog.xml" per non toccare la loro
  *
  * Categorie: [{slug, name, description, seo: {title, description}}]
  */
@@ -27,7 +28,7 @@ final class BlogRenderer
     public function __construct(array $site, private array $templates)
     {
         $this->blog = $site['blog'] + ['index_path' => null, 'per_page' => 10, 'static_pages' => [],
-            'category_path' => '/category/{slug}/', 'index_title' => 'Blog'];
+            'category_path' => '/category/{slug}/', 'index_title' => 'Blog', 'sitemap_file' => 'sitemap.xml'];
         $this->domain = rtrim($site['domain'], '/');
         $this->siteName = $site['site_name'] ?? '';
     }
@@ -64,7 +65,7 @@ final class BlogRenderer
             }
         }
 
-        $files['sitemap.xml'] = $this->sitemap($sitemap);
+        $files[$this->blog['sitemap_file']] = $this->sitemap($sitemap);
         return ['files' => $files, 'paths' => array_keys($sitemap)];
     }
 

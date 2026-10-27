@@ -26,7 +26,7 @@ RUN a2enmod headers \
     '  AddType "text/plain; charset=utf-8" .md' \
     '</VirtualHost>' > /etc/apache2/sites-available/000-default.conf \
  && echo 'ServerTokens Prod' >> /etc/apache2/apache2.conf \
- && echo 'expose_php = Off' > /usr/local/etc/php/conf.d/panel.ini
+ && printf '%s\n' 'expose_php = Off' 'display_errors = Off' 'log_errors = On' > /usr/local/etc/php/conf.d/panel.ini
 
 WORKDIR /app
 COPY lib/ lib/

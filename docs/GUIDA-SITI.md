@@ -74,6 +74,10 @@ sito/
 │   └── icons/                 eventuali icone svg
 ├── robots.txt
 ├── sitemap.xml
+├── _sitehub/                  solo se il sito ha il blog: template letti da SiteHub (sezione 12), mai pubblicati
+│   └── templates/
+│       ├── articolo.html
+│       └── blog.html
 ├── Dockerfile                 pubblicazione su Coolify (vedi sezione 13)
 ├── nginx.conf
 ├── .dockerignore
@@ -392,9 +396,157 @@ si scrive con `type="text/plain"` e la categoria in `data-ssg-consent`: parte so
 
 ### Blog
 
-Gli articoli del blog li scrive l'agenzia dal gestionale e li pubblica SiteHub.
-**Non creare a mano pagine di articoli o elenchi di articoli.** Se il sito avrà un blog, aggiungi solo la voce "Blog" nel menu,
-con link a `/blog/`. Le istruzioni per i template del blog arriveranno in una prossima versione di questa guida.
+Gli articoli li scrive l'agenzia dal gestionale; SiteHub genera le pagine del blog **con la grafica del sito**
+usando due template HTML che crei tu, e le pubblica nel repo (commit + deploy automatico).
+
+**Non creare a mano pagine di articoli né elenchi di articoli definitivi.** Crea invece:
+
+1. **`_sitehub/templates/articolo.html`**: la pagina di un articolo.
+2. **`_sitehub/templates/blog.html`**: l'elenco degli articoli (usato per `/blog/`, per le pagine delle categorie e per `/blog/page/2/`…).
+3. La voce **"Blog"** nel menu di tutte le pagine, con link a `/blog/`.
+4. In `robots.txt` la riga `Sitemap: https://www.dominio-cliente.it/sitemap-blog.xml` (sotto quella di `sitemap.xml`).
+
+Indirizzi generati da SiteHub (non creare file in queste cartelle):
+- `/blog/` elenco, `/blog/page/2/` pagine successive
+- `/blog/titolo-articolo/` articolo
+- `/blog/categoria/nome-categoria/` articoli di una categoria
+- `/sitemap-blog.xml` sitemap del blog (la tua `sitemap.xml` resta tua: non aggiungerci gli articoli)
+
+**Come si fanno i template.** Sono pagine HTML normali del sito (stesso `<head>`, header e footer di tutte le altre pagine,
+script di SiteHub compreso), in cui al posto dei contenuti ci sono dei **segnaposti** tra doppie graffe.
+Il modo più semplice: costruisci prima una pagina articolo e una pagina elenco di esempio con contenuti finti, controlla la grafica,
+poi copiale in `_sitehub/templates/` sostituendo i contenuti con i segnaposti.
+
+Come funzionano i segnaposti:
+
+| Scrittura | Effetto |
+|---|---|
+| `{{title}}` | inserisce il valore (testo sicuro: `<` e `"` vengono convertiti) |
+| `{{{content}}}` | inserisce HTML così com'è: **tre graffe**, solo per `content`, `pagination` e `schema` |
+| `{{#posts}} … {{/posts}}` | ripete il blocco per ogni elemento della lista |
+| `{{#image}} … {{/image}}` | mostra il blocco solo se il valore c'è (es. l'immagine) |
+| `{{^posts}} … {{/posts}}` | mostra il blocco solo se il valore è vuoto (es. "nessun articolo") |
+| `{{image.url}}` | un campo dentro un altro |
+
+**Segnaposti di `articolo.html`**
+
+| Segnaposto | Contenuto |
+|---|---|
+| `{{title}}` | titolo dell'articolo (**obbligatorio**, nell'`<h1>`) |
+| `{{{content}}}` | testo dell'articolo in HTML (**obbligatorio**, tre graffe) |
+| `{{seo_title}}` | titolo per `<title>` e `og:title` |
+| `{{seo_description}}` | descrizione per `meta description` e `og:description` |
+| `{{canonical}}` | indirizzo completo della pagina, per `canonical` e `og:url` |
+| `{{robots}}` | per `<meta name="robots">` (`index, follow` o `noindex, follow`) |
+| `{{og_image}}` | indirizzo completo dell'immagine, per `og:image` (vuoto se non c'è) |
+| `{{{schema}}}` | dati strutturati, dentro `<script type="application/ld+json">` |
+| `{{date_iso}}` / `{{date_human}}` | data in formato tecnico (`<time datetime>`) e leggibile ("27 ottobre 2026") |
+| `{{modified_iso}}` | data dell'ultima modifica |
+| `{{excerpt}}` | riassunto |
+| `{{author}}` | autore (può essere vuoto) |
+| `{{site_name}}` | nome del sito |
+| `{{#image}}…{{/image}}` con `{{image.url}}`, `{{image.alt}}`, `{{image.width}}`, `{{image.height}}` | immagine in evidenza, se c'è |
+| `{{#categories}}…{{/categories}}` con `{{name}}`, `{{url}}` | categorie dell'articolo |
+| `{{url}}`, `{{slug}}` | indirizzo relativo (`/blog/titolo/`) e slug |
+
+**Segnaposti di `blog.html`**
+
+| Segnaposto | Contenuto |
+|---|---|
+| `{{#posts}}…{{/posts}}` | **obbligatorio**: un blocco per articolo; dentro valgono i segnaposti dell'articolo (`{{title}}`, `{{url}}` **obbligatorio**, `{{excerpt}}`, `{{date_human}}`, `{{image.url}}`…) |
+| `{{^posts}}…{{/posts}}` con `{{empty_text}}` | messaggio quando non ci sono articoli |
+| `{{archive_title}}` | "Blog" oppure il nome della categoria |
+| `{{description}}` | descrizione della categoria (può essere vuota) |
+| `{{{pagination}}}` | link alle pagine successive (tre graffe) |
+| `{{seo_title}}`, `{{seo_description}}`, `{{canonical}}`, `{{robots}}`, `{{{schema}}}`, `{{site_name}}` | come nell'articolo |
+
+⚠️ **Dentro `{{#image}} … {{/image}}`, `{{url}}` è l'indirizzo dell'immagine, non dell'articolo.**
+Metti quindi il link all'articolo **fuori** dal blocco dell'immagine e usa sempre la forma `{{image.url}}`, come nell'esempio.
+
+**Esempio di `articolo.html`** (header, footer e il resto del `<head>` sono quelli del sito):
+
+```html
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{seo_title}}</title>
+  <meta name="description" content="{{seo_description}}">
+  <meta name="robots" content="{{robots}}">
+  <link rel="canonical" href="{{canonical}}">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="it_IT">
+  <meta property="og:site_name" content="{{site_name}}">
+  <meta property="og:title" content="{{seo_title}}">
+  <meta property="og:description" content="{{seo_description}}">
+  <meta property="og:url" content="{{canonical}}">
+  {{#og_image}}<meta property="og:image" content="{{og_image}}">{{/og_image}}
+  <link rel="icon" href="/assets/img/favicon.webp">
+  <link rel="stylesheet" href="/style.css?v=1">
+  <script type="application/ld+json">{{{schema}}}</script>
+</head>
+<body>
+  <!-- header del sito, identico alle altre pagine -->
+
+  <main id="contenuto">
+    <article class="articolo">
+      <p class="articolo__meta">
+        <a href="/blog/">Blog</a> · <time datetime="{{date_iso}}">{{date_human}}</time>
+        {{#categories}} · <a href="{{url}}">{{name}}</a>{{/categories}}
+      </p>
+      <h1>{{title}}</h1>
+      {{#image}}<img class="articolo__immagine" src="{{image.url}}" alt="{{image.alt}}" width="{{image.width}}" height="{{image.height}}">{{/image}}
+      <div class="articolo__testo">{{{content}}}</div>
+    </article>
+  </main>
+
+  <!-- footer del sito, identico alle altre pagine -->
+  <script src="/script.js?v=1" defer></script>
+  <script src="https://hub.planstudios.it/e/v1/pk_XXXXXXXX.js" defer></script>
+</body>
+</html>
+```
+
+**Esempio della parte centrale di `blog.html`** (il resto come sopra, con `og:type` = `website` e senza `og:image`):
+
+```html
+  <main id="contenuto">
+    <section class="blog">
+      <h1>{{archive_title}}</h1>
+      {{#description}}<p>{{description}}</p>{{/description}}
+
+      <div class="blog__griglia">
+        {{#posts}}
+        <article class="blog__card">
+          <a href="{{url}}">
+            {{#image}}<img src="{{image.url}}" alt="{{image.alt}}" loading="lazy">{{/image}}
+            <h2>{{title}}</h2>
+          </a>
+          <p class="blog__data"><time datetime="{{date_iso}}">{{date_human}}</time></p>
+          <p>{{excerpt}}</p>
+        </article>
+        {{/posts}}
+      </div>
+      {{^posts}}<p>{{empty_text}}</p>{{/posts}}
+
+      {{{pagination}}}
+    </section>
+  </main>
+```
+
+Stile: aggiungi in `style.css` le classi dei template (`.articolo`, `.blog__card`…) e lo stile del testo degli articoli
+(`.articolo__testo h2, p, ul, img, blockquote, a`), che arriva dall'editor del gestionale come HTML semplice.
+La paginazione ha queste classi: `.pagination`, `.page-numbers`, `.current`, `.prev`, `.next`.
+
+Regole:
+- I template devono stare **esattamente** in `_sitehub/templates/articolo.html` e `_sitehub/templates/blog.html`.
+- Header, footer e `<head>` dei template devono restare **uguali a quelli delle altre pagine**:
+  se modifichi header o footer del sito, **aggiorna anche i due template**. Le pagine del blog si rigenerano alla pubblicazione successiva di un articolo
+  (o con "Pubblica di nuovo tutto il blog" nel gestionale).
+- Niente articoli scritti a mano dentro `/blog/`: verrebbero sostituiti.
+- Quando i template sono nel repo, il blog si collega dal gestionale (pagina del sito → Blog → **Collega il blog**):
+  SiteHub controlla i template e segnala cosa manca (es. "manca {{{content}}} in articolo.html") o i segnaposti scritti male.
 
 ---
 
@@ -409,8 +561,8 @@ Questi file sono uguali per tutti i siti. Copiali così come sono.
 FROM nginx:1.27-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY . /usr/share/nginx/html/
-# la configurazione non deve essere pubblica
-RUN rm /usr/share/nginx/html/nginx.conf
+# la configurazione e i file di SiteHub (template, copia degli articoli) non devono essere pubblici
+RUN rm -rf /usr/share/nginx/html/nginx.conf /usr/share/nginx/html/_sitehub
 ```
 
 **`nginx.conf`**: pagina 404, cache, compressione e intestazioni di sicurezza.
@@ -449,6 +601,9 @@ server {
         add_header X-Content-Type-Options "nosniff" always;
     }
 
+    # template e copia degli articoli di SiteHub (anche le bozze): mai pubblici
+    location ^~ /_sitehub/ { return 404; }
+
     error_page 404 /404.html;
 }
 ```
@@ -472,6 +627,7 @@ README.md
 .git
 .gitignore
 versione.sh
+_sitehub
 ```
 
 **`.gitignore`**
@@ -521,7 +677,8 @@ echo "style.css?v=$css  script.js?v=$js"
 - Form con `action`, JavaScript proprio per l'invio, servizi esterni per i form, captcha.
 - Pagine `.html` nella radice (`chi-siamo.html`): sempre `chi-siamo/index.html`.
 - Link relativi (`../`, `immagini/foto.jpg`): sempre da `/`.
-- Pagine di articoli del blog scritte a mano.
+- Pagine di articoli del blog scritte a mano, o file dentro `/blog/`.
+- Togliere `_sitehub` da `Dockerfile`, `.dockerignore` o `nginx.conf`: contiene anche le bozze degli articoli.
 - Testi segnaposto (lorem ipsum) o dati inventati (indirizzi, P.IVA, recensioni) lasciati nel sito pubblicato.
 - Immagini pesanti (oltre 400 KB) o senza `width`, `height` e `alt`.
 
@@ -543,7 +700,9 @@ Prima di consegnare il sito:
 - [ ] Form con `data-ssg-form`, senza `action`, con label e casella privacy; invio di prova riuscito.
 - [ ] Footer con P.IVA, Privacy Policy, Cookie Policy (e Preferenze cookie se servono) in tutte le pagine.
 - [ ] `./versione.sh` lanciato dopo l'ultima modifica a CSS o JS.
-- [ ] `Dockerfile`, `nginx.conf`, `.dockerignore` presenti.
+- [ ] `Dockerfile`, `nginx.conf`, `.dockerignore` presenti, con le righe per `_sitehub`.
+- [ ] Se c'è il blog: `_sitehub/templates/articolo.html` e `blog.html` con header e footer aggiornati, voce "Blog" nel menu,
+      `sitemap-blog.xml` in `robots.txt`, stile degli articoli in `style.css`.
 
 ---
 
@@ -557,6 +716,7 @@ Prima di consegnare il sito:
 > - Immagini: [allegate / da indicare con segnaposto e dimensioni].
 > - Dominio: https://www.[dominio].it
 > - Servizi esterni: [nessuno / Google Analytics G-XXXX / mappa di Google Maps…]
+> - Blog: [no / sì: crea i template come da sezione 12]
 >
 > Restituisci tutti i file con la struttura di cartelle della guida, compresi Dockerfile, nginx.conf, .dockerignore, versione.sh e README.md.
 > Alla fine elenca le pagine create e i controlli della sezione 16 che hai verificato.
