@@ -70,7 +70,7 @@ before(async () => {
     cwd: path.resolve(import.meta.dirname, '..'),
     env: {
       ...process.env, PORT: String(port), EDITOR_TOKEN: TOKEN, GITHUB_TOKEN, EDITOR_FAKE_AGENT: '1',
-      DATA_DIR: path.join(tmp, 'data'), PUBLIC_URL: base, STARTER_DIR: starter,
+      DATA_DIR: path.join(tmp, 'data'), STARTER_DIR: starter,
       GITHUB_GIT_BASE: `file://${remotes}`, GITHUB_API_BASE: `http://localhost:${fakeGithub.address().port}`,
     },
     stdio: ['ignore', 'pipe', 'inherit'],
@@ -96,7 +96,7 @@ test('modifica di un sito: repo scaricato, token mai nei file', async () => {
   const res = await api('POST', '/api/sessions', { repo: 'Plan-Studios/sito-prova', siteName: 'Prova', domain: 'https://prova.it', user: { name: 'Mario Rossi' } });
   assert.equal(res.status, 201, JSON.stringify(res.body));
   session = res.body.session;
-  assert.match(session.previewUrl, /\/anteprima\/[a-f0-9]{32}\/$/);
+  assert.match(session.previewPath, /^\/anteprima\/[a-f0-9]{32}\/$/);
   assert.equal(session.guide, undefined, 'la guida non va restituita');
   const work = path.join(tmp, 'data', 'work', session.id);
   assert.ok(fs.existsSync(path.join(work, 'index.html')));
@@ -125,7 +125,7 @@ test('chat: modifiche, file protetti rifiutati, costo e file cambiati alla fine'
 });
 
 test('anteprima: indirizzi del sito riscritti, cartelle interne nascoste, chiave sbagliata 404', async () => {
-  const key = session.previewUrl.match(/anteprima\/([a-f0-9]{32})/)[1];
+  const key = session.previewPath.match(/anteprima\/([a-f0-9]{32})/)[1];
   const home = await fetch(`${base}/anteprima/${key}/`);
   assert.equal(home.status, 200);
   const html = await home.text();

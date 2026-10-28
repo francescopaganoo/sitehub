@@ -3,7 +3,6 @@
 //   EDITOR_TOKEN        chiave condivisa con il gestionale: tutte le chiamate API la devono presentare
 //   GITHUB_TOKEN        token dedicato all'editor: scrive sui repo dei siti e crea i repo nuovi (Administration)
 //   GITHUB_ORG          organizzazione dei repo dei siti (es. Plan-Studios)
-//   PUBLIC_URL          indirizzo pubblico del servizio (es. https://editor.planstudios.it): serve per le anteprime
 //   DATA_DIR            cartella persistente: cartelle di lavoro e sessioni (volume su Coolify)
 //   EDITOR_MAX_BUDGET_USD  tetto di spesa per ogni messaggio (stima del SDK), predefinito 5
 //
@@ -26,7 +25,6 @@ export const config = {
   // per i test: repo e API di un finto GitHub
   githubGitBase: (process.env.GITHUB_GIT_BASE || 'https://github.com').replace(/\/+$/, ''),
   githubApiBase: (process.env.GITHUB_API_BASE || 'https://api.github.com').replace(/\/+$/, ''),
-  publicUrl: (process.env.PUBLIC_URL || 'http://localhost').replace(/\/+$/, ''),
   dataDir: process.env.DATA_DIR || '/data',
   starterDir: process.env.STARTER_DIR || path.resolve(import.meta.dirname, '../../starter'),
   maxBudgetUsd: Number(process.env.EDITOR_MAX_BUDGET_USD || 5),

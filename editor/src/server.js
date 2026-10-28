@@ -1,5 +1,5 @@
-// Servizio editor dei siti statici. Lo usa il gestionale (che controlla permessi e utenti);
-// il browser vede direttamente solo le anteprime, con una chiave casuale per sessione.
+// Servizio editor dei siti statici. Lo usa solo il gestionale (che controlla permessi e utenti), dalla rete
+// interna: niente dominio pubblico. Anche le anteprime passano dal gestionale, che le inoltra al browser.
 //
 //   GET    /health
 //   GET    /api/info                                  organizzazione GitHub dei siti nuovi

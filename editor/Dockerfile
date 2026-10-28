@@ -1,7 +1,7 @@
 # Editor dei siti statici (Claude Agent SDK) – Coolify: build pack "Dockerfile",
-# Dockerfile "editor/Dockerfile", contesto di build: la radice del repo (serve anche starter/). Porta 80.
+# Dockerfile "editor/Dockerfile", contesto di build: la radice del repo (serve anche starter/). Porta 80, nessun dominio.
 #
-# Variabili d'ambiente: EDITOR_TOKEN, GITHUB_TOKEN, GITHUB_ORG, PUBLIC_URL (vedi src/config.js)
+# Variabili d'ambiente: EDITOR_TOKEN, GITHUB_TOKEN, GITHUB_ORG (vedi src/config.js)
 # Volume persistente: /data (cartelle di lavoro e sessioni)
 
 FROM node:24-slim

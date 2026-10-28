@@ -223,5 +223,5 @@ export async function byPreviewKey(key) {
 /** Vista pubblica di una sessione (senza guida e chiave di anteprima ripetute). */
 export function view(meta) {
   const { guide, previewKey, ...rest } = meta;
-  return { ...rest, running: running.has(meta.id), previewUrl: `${config.publicUrl}/anteprima/${previewKey}/` };
+  return { ...rest, running: running.has(meta.id), previewPath: `/anteprima/${previewKey}/` };
 }

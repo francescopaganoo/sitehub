@@ -17,14 +17,16 @@ Servizio che modifica e crea i siti statici con Claude (Claude Agent SDK). Lo us
   - La chiave Anthropic e il modello li manda il gestionale a ogni messaggio (impostazioni AI): il servizio non li conserva.
 - **Sito nuovo**: repo privato nell'organizzazione, contenuto di `../starter/` come primo commit, con la riga dello script
   di SiteHub già inserita; poi Claude lo completa a partire dal brief.
-- **Anteprima**: `https://…/anteprima/{chiave}/`, chiave casuale per sessione, non indicizzata.
+- **Anteprima**: `/anteprima/{chiave}/`, chiave casuale per sessione, non indicizzata. Il browser la apre dal backend
+  del gestionale, che la inoltra: il servizio non ha bisogno di un dominio pubblico.
 
 API: vedi l'intestazione di `src/server.js`.
 
 ## Su Coolify
 
 - Nuova applicazione dal repo di SiteHub, build pack **Dockerfile**, Dockerfile `editor/Dockerfile`,
-  contesto di build: la radice del repo. Porta 80. Dominio, es. `editor.planstudios.it`.
+  contesto di build: la radice del repo. Porta 80. **Nessun dominio**: lo raggiunge solo il backend del gestionale,
+  dalla rete interna di Coolify (es. `http://<nome-del-container>`; il nome si trova nella pagina dell'applicazione).
 - Volume persistente su `/data`.
 - Variabili d'ambiente:
 
@@ -33,7 +35,6 @@ API: vedi l'intestazione di `src/server.js`.
 | `EDITOR_TOKEN` | chiave lunga e casuale (`openssl rand -hex 32`), la stessa da inserire nel gestionale |
 | `GITHUB_TOKEN` | token GitHub dedicato all'editor (fine-grained, proprietario dell'organizzazione dei siti): **Contents** e **Administration** in lettura e scrittura, su tutti i repo |
 | `GITHUB_ORG` | `Plan-Studios` |
-| `PUBLIC_URL` | indirizzo pubblico, es. `https://editor.planstudios.it` |
 | `EDITOR_MAX_BUDGET_USD` | facoltativo: tetto di spesa per ogni messaggio (predefinito 5) |
 
 ## Sviluppo
