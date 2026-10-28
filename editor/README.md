@@ -26,7 +26,9 @@ API: vedi l'intestazione di `src/server.js`.
 
 - Nuova applicazione dal repo di SiteHub, build pack **Dockerfile**, Dockerfile `editor/Dockerfile`,
   contesto di build: la radice del repo. Porta 80. **Nessun dominio**: lo raggiunge solo il backend del gestionale,
-  dalla rete interna di Coolify (es. `http://<nome-del-container>`; il nome si trova nella pagina dell'applicazione).
+  dalla rete interna di Coolify. Nelle impostazioni dell'applicazione aggiungi l'alias di rete `sitehub-editor`:
+  nel gestionale l'indirizzo dell'editor sarà `http://sitehub-editor`. Prova dal terminale del backend del gestionale:
+  `node -e "fetch('http://sitehub-editor/health').then(r => r.text()).then(console.log, console.error)"` → `{"ok":true}`.
 - Volume persistente su `/data`.
 - Variabili d'ambiente:
 
