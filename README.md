@@ -50,6 +50,21 @@ Le regole complete sono nella guida: https://hub.planstudios.it/guida.md
    (pagina del sito → Blog → Collega il blog).
 8. **Prima del commit**: `./versione.sh`, poi i controlli finali della guida (sezione 16). Repo su GitHub e app su Coolify.
 
+## SEO (prima di andare online)
+
+Le regole complete sono nella guida, sezione SEO. In breve:
+
+- [ ] `title` (50-60 caratteri, "Argomento – Nome Azienda") e `description` (140-155) **diversi per ogni pagina**; un solo `h1` per pagina
+- [ ] una pagina per ogni servizio importante, con testi veri (almeno 250-300 parole) e la città dove ha senso
+- [ ] nome, indirizzo e telefono **identici** in footer, contatti, dati strutturati e scheda Google; tipo di dati strutturati adatto all'attività
+- [ ] immagini WebP con nomi parlanti e `alt`; l'immagine dell'hero senza `loading="lazy"`
+- [ ] `sitemap.xml` con tutte le pagine; se il sito sostituisce un vecchio sito, redirect 301 in `nginx.conf`
+- [ ] dopo la messa online: PageSpeed Insights da mobile verde, test dei risultati multimediali, sitemap inviata a Search Console
+
+Search Console e statistiche sono **facoltative** e si scelgono nel gestionale (pagina del sito → SEO e statistiche):
+la guida del sito dice poi esattamente cosa aggiungere (nel `<head>` c'è già il commento che indica dove).
+Con Google Analytics serve il consenso: lo script si scrive con `data-ssg-consent="statistics"` e la cookie policy va aggiornata.
+
 ## Con un LLM
 
 Dai all'LLM la cartella (o i file) dello starter insieme alla guida del sito e a testi, colori e immagini del cliente:
