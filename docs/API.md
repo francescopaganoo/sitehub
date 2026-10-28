@@ -57,7 +57,7 @@ Con un token di sito, gli altri siti risultano **inesistenti** (404), non vietat
 | 403 | `forbidden` | operazione riservata ai token agenzia |
 | 404 | `not_found` | sito / articolo / categoria / endpoint inesistente |
 | 405 | `method_not_allowed` | metodo HTTP non previsto per quell'URL |
-| 409 | `already_imported`, `templates_missing` | stato del sito non compatibile con l'operazione |
+| 409 | `already_imported`, `templates_missing`, `blog_disabled` | stato del sito non compatibile con l'operazione |
 | 422 | `validation_failed`, `invalid_target`, `import_failed`, `templates_invalid` | dati non validi (dettaglio in `fields` o nel messaggio) |
 | 502 | `github_error` | GitHub ha rifiutato la pubblicazione |
 | 500 | `internal_error` | errore del pannello |
@@ -135,7 +135,13 @@ Registra un sito. Il suo repo deve contenere l'output del clonatore.
 ### `PATCH /sites/{site}` (solo agenzia)
 Modifica solo i campi inviati: `name`, `domain`, `target`, `auto_publish`, `modules`, `origins`, `cookies`, `blog`.
 
-`modules` aggiorna solo le chiavi inviate, per esempio `{"modules": {"forms": false}}`. Il cambiamento arriva sul sito entro 5 minuti (cache dello script) e non serve toccare l'HTML.
+`modules` aggiorna solo le chiavi inviate, per esempio `{"modules": {"forms": false}}`. Form e banner cookie cambiano sul sito entro 5 minuti (cache dello script) e non serve toccare l'HTML.
+
+Il blog invece è fatto di pagine nel repo del sito:
+- `{"modules": {"blog": false}}` toglie dal repo, in un solo commit, le pagine e le immagini generate (elenco, articoli, categorie, `sitemap-blog.xml`; nei siti clonati `sitemap.xml` viene riscritta con le sole pagine del sito). Gli articoli restano nel pannello e la loro copia resta in `content/`. Finché il blog è spento, salvare un articolo non pubblica nulla e `POST /publish` risponde `409 blog_disabled`. La voce "Blog" nel menu del sito va tolta dall'HTML.
+- `{"modules": {"blog": true}}` ripubblica tutto.
+
+L'esito è in `publish`, come per gli articoli.
 
 Campi di `cookies` (banner di consenso, modulo `cookies`). Si aggiornano solo le chiavi inviate:
 

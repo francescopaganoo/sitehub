@@ -88,6 +88,9 @@ final class Publisher
     /** @return array{revision:?string, written:int, deleted:int} */
     public function publish(array $site, string $actor, string $message): array
     {
+        if (empty($site['modules']['blog'])) {
+            throw new ApiError(409, 'blog_disabled', 'Il blog è disattivato per questo sito: riattivalo per pubblicare');
+        }
         try {
             $site = $this->refreshTemplates($site);
             $files = $this->build($site);
@@ -99,6 +102,42 @@ final class Publisher
         }
 
         $this->store->updateSite($site['id'], ['manifest' => array_keys($files), 'published_at' => date('c')]);
+        $this->log($site, $actor, $message, $result);
+        return $result;
+    }
+
+    /**
+     * Blog disattivato: toglie dal repo, in un solo commit, le pagine e le immagini generate da SiteHub.
+     * La copia degli articoli (content/) resta nel repo e gli articoli restano nel pannello:
+     * riattivando il blog si ripubblica tutto. Nei siti clonati sitemap.xml contiene anche le altre pagine,
+     * quindi si riscrive senza gli articoli invece di toglierla.
+     *
+     * @return array{revision:?string, written:int, deleted:int}
+     */
+    public function unpublishBlog(array $site, string $actor, string $message): array
+    {
+        $layout = Layout::of($site);
+        $manifest = $site['manifest'] ?? [];
+        $keep = array_values(array_filter($manifest, fn($p) => str_starts_with($p, $layout->data . 'content/')));
+        $files = [];
+        $sitemap = $layout->pages . $layout->sitemap;
+        if ($layout->name === 'clone' && in_array($sitemap, $manifest, true)) {
+            $domain = rtrim($site['domain'], '/');
+            $xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n";
+            foreach ($site['config']['blog']['static_pages'] ?? [] as $path) {
+                $xml .= '  <url><loc>' . htmlspecialchars($domain . $path, ENT_XML1) . "</loc></url>\n";
+            }
+            $files[$sitemap] = $xml . "</urlset>\n";
+            $keep[] = $sitemap;
+        }
+        $deletes = array_values(array_diff($manifest, $keep));
+        try {
+            $result = $deletes || $files ? self::target($site)->commit($files, $deletes, $message) : ['revision' => null, 'written' => 0, 'deleted' => 0];
+        } catch (\Throwable $e) {
+            $this->log($site, $actor, $message, null, $e->getMessage());
+            throw $e;
+        }
+        $this->store->updateSite($site['id'], ['manifest' => $keep]);
         $this->log($site, $actor, $message, $result);
         return $result;
     }

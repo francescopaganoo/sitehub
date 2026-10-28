@@ -27,7 +27,8 @@ abstract class Api
      */
     protected function autoPublish(array $site, string $message, bool $force = false): ?array
     {
-        if (!$force && !($site['config']['auto_publish'] ?? true)) {
+        // blog disattivato: gli articoli si salvano, ma sul sito non va niente finché non si riattiva
+        if (empty($site['modules']['blog']) || (!$force && !($site['config']['auto_publish'] ?? true))) {
             return null;
         }
         try {

@@ -129,9 +129,23 @@ final class SitesApi extends Api
         }
         $set['config'] = $config;
 
+        $wasBlog = !empty($site['modules']['blog']);
         $this->store->updateSite($site['id'], $set);
         $site = $this->site($site['slug']);
-        $publish = isset($in['blog']) && $site['templates'] ? $this->autoPublish($site, 'Pannello: impostazioni blog aggiornate') : null;
+        $isBlog = !empty($site['modules']['blog']);
+        $publish = null;
+        if ($site['templates'] && $wasBlog && !$isBlog) {
+            // blog spento: le sue pagine escono dal sito (gli articoli restano nel pannello)
+            try {
+                $publish = $this->publisher->unpublishBlog($site, $this->principal['name'], 'Pannello: blog disattivato, pagine del blog tolte dal sito');
+            } catch (\Throwable $e) {
+                $publish = ['error' => $e->getMessage()];
+            }
+        } elseif ($site['templates'] && !$wasBlog && $isBlog) {
+            $publish = $this->autoPublish($site, 'Pannello: blog riattivato', true);
+        } elseif (isset($in['blog']) && $site['templates']) {
+            $publish = $this->autoPublish($site, 'Pannello: impostazioni blog aggiornate');
+        }
         return Response::json(['data' => $this->out($site), 'publish' => $publish]);
     }
 
