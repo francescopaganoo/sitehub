@@ -107,10 +107,18 @@ function author(user) {
  * Un messaggio della chat. `emit` riceve gli eventi man mano (testo, file toccati, fine).
  * Un messaggio alla volta per sessione.
  */
-export async function message(id, { text, apiKey, model, effort, user }, emit) {
+export async function message(id, { text, authMode = 'api', apiKey, oauthToken, model, effort, user }, emit) {
   const meta = await get(id);
   if (!text?.trim()) throw new SessionError(422, 'Messaggio vuoto');
-  if (!apiKey && !config.fakeAgent) throw new SessionError(409, 'Chiave Anthropic non configurata nel gestionale');
+  if (!['api', 'subscription'].includes(authMode)) throw new SessionError(422, 'Modalità Claude non valida');
+  if (!config.fakeAgent) {
+    if (authMode === 'subscription' && (typeof oauthToken !== 'string' || !/^sk-ant-oat\d+-[A-Za-z0-9_-]+$/.test(oauthToken))) {
+      throw new SessionError(409, 'Token dell’abbonamento Claude non configurato o non valido nel gestionale');
+    }
+    if (authMode === 'api' && (typeof apiKey !== 'string' || !apiKey.trim())) {
+      throw new SessionError(409, 'Chiave Anthropic non configurata nel gestionale');
+    }
+  }
   if (running.has(id)) throw new SessionError(409, 'Claude sta già lavorando su questa sessione');
 
   const root = workDir(id);
@@ -122,7 +130,7 @@ export async function message(id, { text, apiKey, model, effort, user }, emit) {
   try {
     // novità dal repo (es. articoli pubblicati da SiteHub) prima di lavorare, se non ci sono modifiche in corso
     if (!(await git.changes(root)).length) await git.pull(root).catch(() => {});
-    for await (const event of runMessage(meta, root, text, { apiKey, model, effort, signal: controller.signal })) {
+    for await (const event of runMessage(meta, root, text, { authMode, apiKey, oauthToken, model, effort, signal: controller.signal })) {
       if (event.type === 'text') answer.text += event.text;
       else if (event.type === 'done') {
         meta.claudeSession = event.claudeSession || meta.claudeSession;

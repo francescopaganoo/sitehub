@@ -71,7 +71,19 @@ ${meta.guide || '(guida non disponibile: segui la struttura dei file esistenti)'
  *   {type: 'denied', tool, message}     operazione rifiutata dalle regole
  *   {type: 'done', ...}                 fine: costo stimato, turni, sessione Claude da riprendere
  */
-export async function* runMessage(meta, root, text, { apiKey, model, effort, signal }) {
+export function authEnvironment({ authMode = 'api', apiKey, oauthToken }) {
+  if (!['api', 'subscription'].includes(authMode)) throw new Error('Modalità Claude non valida');
+  // Ambiente esplicito, mai le credenziali del processo server o dell'altra modalità.
+  return {
+    PATH: process.env.PATH,
+    HOME: process.env.HOME || '/tmp',
+    ...(authMode === 'subscription'
+      ? { CLAUDE_CODE_OAUTH_TOKEN: oauthToken }
+      : { ANTHROPIC_API_KEY: apiKey }),
+  };
+}
+
+export async function* runMessage(meta, root, text, { authMode = 'api', apiKey, oauthToken, model, effort, signal }) {
   if (config.fakeAgent) {
     yield* fakeRun(root, text);
     return;
@@ -102,7 +114,7 @@ export async function* runMessage(meta, root, text, { apiKey, model, effort, sig
       resume: meta.claudeSession || undefined,
       abortController,
       // ambiente minimo: niente token GitHub o altre variabili del servizio nel processo di Claude
-      env: { PATH: process.env.PATH, HOME: process.env.HOME || '/tmp', ANTHROPIC_API_KEY: apiKey },
+      env: authEnvironment({ authMode, apiKey, oauthToken }),
     },
   });
 
@@ -142,7 +154,7 @@ export async function* runMessage(meta, root, text, { apiKey, model, effort, sig
 /** Errori del SDK in parole comprensibili per chi usa il gestionale. */
 export function explain(raw) {
   const text = String(raw || '');
-  if (/invalid api key|authentication|401/i.test(text)) return 'Chiave Anthropic non valida: controllala nelle impostazioni AI del gestionale.';
+  if (/invalid api key|authentication|oauth|token.*expired|401/i.test(text)) return 'Credenziale Claude non valida o scaduta: controlla API key o token dell’abbonamento nelle impostazioni AI del gestionale.';
   if (/credit balance|billing|402/i.test(text)) return 'Credito Anthropic esaurito: ricaricalo sulla console di Anthropic.';
   if (/rate.?limit|429|overloaded|529/i.test(text)) return 'Claude è sovraccarico o il limite di richieste è stato raggiunto: riprova tra qualche minuto.';
   if (text === 'error_max_budget_usd') return 'Raggiunto il tetto di spesa per questa richiesta: dividila in richieste più piccole.';

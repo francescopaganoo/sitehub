@@ -137,7 +137,7 @@ async function route(req, res) {
   if (p === '/api/history' && req.method === 'GET') {
     return json(res, 200, { commits: await sessions.history({ repo: url.searchParams.get('repo'), branch: url.searchParams.get('branch') || undefined, limit: url.searchParams.get('limit') }) });
   }
-  if (p === '/api/info' && req.method === 'GET') return json(res, 200, { githubOrg: config.githubOrg });
+  if (p === '/api/info' && req.method === 'GET') return json(res, 200, { githubOrg: config.githubOrg, authModes: ['api', 'subscription'] });
 
   if ((match = m(/^\/api\/sessions\/([^/]+)(\/[a-z]+)?$/))) {
     const [, id, action = ''] = match;

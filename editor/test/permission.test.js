@@ -55,7 +55,7 @@ test('percorso relativo del sito', () => {
 
 test('errori del SDK spiegati', async () => {
   const { explain } = await import('../src/agent.js');
-  assert.match(explain('Claude Code returned an error result: Invalid API key · Fix external API key'), /Chiave Anthropic non valida/);
+  assert.match(explain('Claude Code returned an error result: Invalid API key · Fix external API key'), /Credenziale Claude non valida o scaduta/);
   assert.match(explain('Your credit balance is too low'), /Credito Anthropic esaurito/);
   assert.match(explain('error_max_budget_usd'), /tetto di spesa/);
 });

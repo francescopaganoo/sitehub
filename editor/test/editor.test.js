@@ -271,6 +271,25 @@ test('sito nuovo: repo creato, starter come primo commit con lo script di SiteHu
   assert.equal((await api('POST', '/api/sites', { repoName: 'Nome Non Valido', siteName: 'x' })).status, 422);
 });
 
+test('abbonamento: modalità pubblicizzata, token mai salvato nella sessione', async () => {
+  const info = await api('GET', '/api/info');
+  assert.ok(info.body.authModes.includes('subscription'));
+  const token = 'sk-ant-oat01-test-subscription';
+  const response = await fetch(`${base}/api/sessions/${session.id}/messages`, {
+    method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ text: 'Controlla il sito', authMode: 'subscription', oauthToken: token }),
+  });
+  const stream = await response.text();
+  assert.equal(response.status, 200);
+  assert.ok(stream.includes('"ok":true'));
+  assert.ok(!stream.includes(token));
+  const stored = fs.readFileSync(path.join(tmp, 'data', 'sessions', `${session.id}.json`), 'utf8');
+  assert.ok(!stored.includes(token));
+  const invalid = await api('POST', `/api/sessions/${session.id}/messages`, { text: 'x', authMode: 'other' });
+  assert.equal(invalid.status, 200);
+  assert.match(invalid.body, /Modalità Claude non valida/);
+});
+
 test('starter da scaricare', async () => {
   const res = await fetch(`${base}/api/starter.zip`, { headers: { Authorization: `Bearer ${TOKEN}` } });
   assert.equal(res.status, 200);
