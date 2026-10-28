@@ -133,7 +133,7 @@ Registra un sito. Il suo repo deve contenere l'output del clonatore.
 - `origins`: domini **in più** da cui accettare i form, per esempio staging o anteprime. Il dominio del sito, con e senza `www`, è sempre ammesso.
 
 ### `PATCH /sites/{site}` (solo agenzia)
-Modifica solo i campi inviati: `name`, `domain`, `target`, `auto_publish`, `modules`, `origins`, `cookies`, `blog`.
+Modifica solo i campi inviati: `name`, `domain`, `target`, `auto_publish`, `modules`, `origins`, `cookies`, `seo`, `blog`.
 
 `modules` aggiorna solo le chiavi inviate, per esempio `{"modules": {"forms": false}}`. Form e banner cookie cambiano sul sito entro 5 minuti (cache dello script) e non serve toccare l'HTML.
 
@@ -142,6 +142,17 @@ Il blog invece è fatto di pagine nel repo del sito:
 - `{"modules": {"blog": true}}` ripubblica tutto.
 
 L'esito è in `publish`, come per gli articoli.
+
+Campi di `seo` (facoltativi; decidono cosa dice la guida del sito nella sezione SEO). Si aggiornano solo le chiavi inviate:
+
+| Campo | Esempio | Note |
+|---|---|---|
+| `search_console` | `"dns"` | verifica di Google Search Console: `dns` (consigliata, nessuna modifica al sito) o `meta` |
+| `search_console_code` | `"AbCdEf123…"` | obbligatorio con `meta`; si può inviare anche l'intera riga `<meta …>`, si tiene il codice |
+| `analytics` | `"ga4"` | `""` (nessuna), `ga4` (Google Analytics, con consenso), `plausible` (senza cookie) |
+| `ga4_id` | `"G-AB12CD34EF"` | obbligatorio con `ga4` |
+
+Con `ga4` SiteHub attiva il modulo `cookies` e aggiunge `statistics` alle categorie (se l'aveva aggiunta lui, la toglie quando Analytics viene tolto).
 
 Campi di `cookies` (banner di consenso, modulo `cookies`). Si aggiornano solo le chiavi inviate:
 

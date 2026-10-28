@@ -3,8 +3,9 @@
     https://hub.planstudios.it/guida.md              generica: tutti i blocchi "positivi" (form, blog, consenso) e "generica"
     https://hub.planstudios.it/e/v1/{chiave}/guida.md su misura per un sito: solo i blocchi che valgono per quel sito
   Blocchi condizionali: una riga «se:NOME» … una riga «/se», scritte come commenti HTML (vedi sotto); si possono annidare.
-  Nomi: generica, sito, form, no-form, blog, no-blog, consenso, tecnici, sito-consenso
-  Segnaposti della guida su misura: %NOME_SITO%, %DOMINIO%, %MODULI%, %URL_GUIDA%, %CATEGORIE%
+  Nomi: generica, sito, form, no-form, blog, no-blog, consenso, tecnici, sito-consenso,
+        sc-dns, sc-meta (verifica di Search Console), ga4, plausible, no-analytics (statistiche)
+  Segnaposti della guida su misura: %NOME_SITO%, %DOMINIO%, %DOMINIO_NUDO%, %MODULI%, %URL_GUIDA%, %CATEGORIE%, %SC_CODICE%, %GA4_ID%
 -->
 <!-- se:generica -->
 # Guida per realizzare un sito statico (Plan Studios + SiteHub)
@@ -265,9 +266,54 @@ Regole:
 
 ## 9. SEO
 
-- `<title>` e `meta description` **diversi per ogni pagina**.
-- `link rel="canonical"` con l'indirizzo completo e definitivo della pagina (dominio vero del cliente, `https`, barra finale).
-- **Dati strutturati** nella home (JSON-LD), con il tipo più adatto all'attività (`LocalBusiness`, `AutoRepair`, `Restaurant`…):
+L'obiettivo: ogni pagina ben descritta per Google e utile a chi la legge, un sito veloce, e, per le attività locali,
+dati coerenti ovunque. Queste regole valgono per tutti i siti; la parte "Search Console e statistiche" è facoltativa.
+
+### Contenuti e titoli
+
+- **Una pagina per ogni argomento importante.** Se l'attività ha servizi distinti (es. "Antennistica", "Centro chiavi"),
+  ognuno ha la sua pagina (`/antennistica/`): è così che si viene trovati per ricerche specifiche.
+- **Un solo `<h1>` per pagina**, con l'argomento principale (e, per le attività locali, la città se è naturale):
+  "Duplicazione radiocomandi ad Acireale". Poi `<h2>` e `<h3>` che descrivono davvero le sezioni, in ordine.
+- **Testi veri e originali**, scritti per le persone: cosa si offre, a chi, dove, perché scegliere l'azienda.
+  Niente testi copiati da altri siti né ripetuti uguali su più pagine, niente elenchi di parole chiave.
+  Una pagina di servizio ha almeno 250-300 parole utili.
+- Le parole che le persone cercano (servizio + città) compaiono nel titolo, nell'`h1`, nel primo paragrafo e nei titoli delle sezioni, in modo naturale.
+
+### Title, description, canonical
+
+- `<title>` **diverso per ogni pagina**, circa 50-60 caratteri, con lo schema **"Argomento della pagina – Nome Azienda"**
+  (es. "Centro chiavi ad Acireale – Ampere"). La home: "Nome Azienda – attività a Città".
+- `<meta name="description">` **diversa per ogni pagina**, 140-155 caratteri: cosa trova chi clicca, con un invito ("Chiama", "Vieni in negozio").
+- `<link rel="canonical">` con l'indirizzo completo e definitivo della pagina (dominio vero, `https`, barra finale).
+  Il sito deve rispondere su **un solo** dominio (con o senza `www`): l'altro reindirizza (lo si imposta su Coolify o Cloudflare).
+- Tag Open Graph (`og:title`, `og:description`, `og:image` 1200×630, `og:url`) in tutte le pagine: servono per le anteprime sui social e su WhatsApp.
+
+### Indirizzi e link interni
+
+- Indirizzi brevi, in italiano, con le parole giuste: `/duplicazione-radiocomandi/`, non `/pagina-3/` o `/servizio?id=7`.
+- Ogni pagina raggiungibile dal menu o da altri link, al massimo in 2-3 clic dalla home.
+- Testi dei link descrittivi: "scopri il servizio di antennistica", non "clicca qui".
+- Le pagine di servizio si collegano tra loro quando ha senso (es. "Automazioni" ↔ "Sistemi di sicurezza") e portano ai contatti.
+
+### Immagini
+
+- Nomi dei file parlanti, in minuscolo con i trattini: `videocitofono-acireale.webp`, non `IMG_2034.webp`.
+- `alt` che descrive l'immagine (con il contesto, senza riempirlo di parole chiave).
+- WebP, dimensioni giuste, `width` e `height` sempre indicati (vedi sezione 8).
+
+### SEO locale (attività con sede o zona servita)
+
+- **Nome, indirizzo e telefono identici ovunque**: header o footer, pagina contatti, dati strutturati, scheda Google Business Profile.
+  Stessa forma (non "Via Roma 1" in un posto e "V. Roma, 1" in un altro).
+- Nella pagina contatti: indirizzo completo, orari, telefono cliccabile, link "Apri in Google Maps" e, se c'è, link alla scheda Google per le recensioni.
+- La città (e le zone servite) nei testi, nei title delle pagine principali e nei dati strutturati.
+
+### Dati strutturati
+
+Nella home (JSON-LD), con il tipo più adatto all'attività: `LocalBusiness` o uno più preciso
+(`Store`, `ElectronicsStore`, `AutoRepair`, `Restaurant`, `Dentist`, `LegalService`, `HomeAndConstructionBusiness`…).
+Gli stessi dati di nome, indirizzo e telefono del sito; gli orari se sono fissi.
 
 ```html
 <script type="application/ld+json">
@@ -277,6 +323,7 @@ Regole:
   "name": "Nome dell'azienda",
   "url": "https://www.dominio-cliente.it/",
   "logo": "https://www.dominio-cliente.it/assets/img/logo.webp",
+  "image": "https://www.dominio-cliente.it/assets/img/condivisione.webp",
   "telephone": "+39 000 000 0000",
   "email": "info@dominio-cliente.it",
   "address": {
@@ -284,11 +331,21 @@ Regole:
     "streetAddress": "Via Esempio 1",
     "postalCode": "00000",
     "addressLocality": "Città",
+    "addressRegion": "XX",
     "addressCountry": "IT"
-  }
+  },
+  "openingHoursSpecification": [
+    { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], "opens": "08:30", "closes": "19:00" }
+  ]
 }
 </script>
 ```
+
+<!-- se:blog -->
+Gli articoli del blog hanno già i loro dati strutturati (`BlogPosting`): li genera SiteHub.
+
+<!-- /se -->
+### robots.txt e sitemap
 
 - `robots.txt`:
 
@@ -302,7 +359,7 @@ Sitemap: https://www.dominio-cliente.it/sitemap-blog.xml
 <!-- /se -->
 ```
 
-- `sitemap.xml` con **tutte** le pagine (non la 404). Quando aggiungi una pagina, aggiungila qui:
+- `sitemap.xml` con **tutte** le pagine (non la 404, non le pagine con `noindex`). Quando aggiungi una pagina, aggiungila qui:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -315,7 +372,104 @@ Sitemap: https://www.dominio-cliente.it/sitemap-blog.xml
 ```
 
 - La `404.html` ha `<meta name="robots" content="noindex">`.
-- Se il sito sostituisce un vecchio sito (es. WordPress), i vecchi indirizzi importanti vanno reindirizzati: vedi `nginx.conf` (sezione 13).
+
+### Velocità (Core Web Vitals)
+
+- L'immagine principale in alto (hero) **non** ha `loading="lazy"`; se possibile `fetchpriority="high"`.
+- Tutte le immagini con `width` e `height`: la pagina non "salta" mentre si carica.
+- Font: al massimo 2-3 file `.woff2`, con `font-display: swap` e il `preload` del principale.
+- Niente librerie o script pesanti; `script.js` con `defer`.
+- Obiettivo: punteggio verde (90+) su [PageSpeed Insights](https://pagespeed.web.dev/) da mobile.
+
+### Se il sito sostituisce un vecchio sito
+
+- Mantieni gli stessi indirizzi quando possibile. Le pagine che cambiano indirizzo vanno **reindirizzate con un 301** verso quello nuovo
+  in `nginx.conf` (sezione 13): così non si perde il posizionamento.
+- Gli indirizzi vecchi senza un equivalente vanno alla pagina più vicina (es. la home o la pagina servizi), non alla 404.
+- Dopo la messa online: in Search Console invia la nuova sitemap e controlla gli errori nei giorni seguenti.
+
+### Search Console e statistiche (facoltative)
+
+<!-- se:generica -->
+Si decidono per ogni sito nel gestionale (pagina del sito → SEO e statistiche); la **guida del sito** contiene poi le istruzioni esatte.
+
+**Google Search Console** (consigliata per tutti i siti): mostra come il sito appare su Google, le ricerche che portano visite e gli errori.
+Non installa niente sul sito e non usa cookie, quindi non richiede consenso. Due modi per verificare il sito:
+
+- **DNS** (consigliato): un record TXT sul dominio, aggiunto dall'agenzia. Vale per tutto il dominio e non tocca l'HTML.
+- **Meta tag**: una riga nel `<head>` di **tutte** le pagine (e dei template del blog), con il codice che dà Search Console:
+
+```html
+<meta name="google-site-verification" content="CODICE-DI-VERIFICA">
+```
+
+Dopo la verifica, in Search Console si invia `sitemap.xml` (e `sitemap-blog.xml` se c'è il blog).
+
+**Statistiche delle visite**, solo se il cliente le vuole:
+
+- **Google Analytics 4**: usa cookie, quindi **richiede il consenso**. Lo script si scrive con `data-ssg-consent="statistics"`
+  (sezione 12, Cookie), nel gestionale si attiva il banner con la categoria "Statistiche" e la cookie policy va aggiornata.
+- **Plausible**: statistiche senza cookie, nessun banner necessario (servizio a pagamento). Va citato nella privacy policy.
+- **Nessuna**: non aggiungere script di statistiche.
+<!-- /se -->
+<!-- se:sc-dns -->
+**Google Search Console**: la verifica è fatta tramite **DNS** dall'agenzia: non aggiungere niente all'HTML.
+Dopo la messa online l'agenzia invia `sitemap.xml`<!-- se:blog --> e `sitemap-blog.xml`<!-- /se --> da Search Console.
+<!-- /se -->
+<!-- se:sc-meta -->
+**Google Search Console**: aggiungi questa riga nel `<head>` di **tutte** le pagine<!-- se:blog --> e dei due template del blog<!-- /se -->,
+subito dopo la `meta description`:
+
+```html
+<meta name="google-site-verification" content="%SC_CODICE%">
+```
+
+Non usa cookie e non richiede consenso.
+<!-- /se -->
+<!-- se:ga4 -->
+
+**Statistiche: Google Analytics 4** (`%GA4_ID%`). Usa cookie, quindi parte **solo dopo il consenso**: nel `<head>` di **tutte** le pagine
+<!-- se:blog -->(e dei due template del blog) <!-- /se -->scrivi esattamente:
+
+```html
+<script type="text/plain" data-ssg-consent="statistics" src="https://www.googletagmanager.com/gtag/js?id=%GA4_ID%" async></script>
+<script type="text/plain" data-ssg-consent="statistics">
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', '%GA4_ID%', { anonymize_ip: true });
+</script>
+```
+
+- Nel footer di tutte le pagine il link `<a href="#cookie-settings">Preferenze cookie</a>`.
+- Nella cookie policy elenca Google Analytics: fornitore Google Ireland Ltd, finalità statistiche, cookie `_ga` e `_ga_*` (durata fino a 2 anni),
+  attivi solo con il consenso; nella privacy policy cita Google come fornitore per le statistiche.
+- Il banner cookie compare da solo: nel gestionale "Statistiche" è già tra i servizi che richiedono consenso.
+<!-- /se -->
+<!-- se:plausible -->
+
+**Statistiche: Plausible** (senza cookie, nessun consenso necessario). Nel `<head>` di **tutte** le pagine
+<!-- se:blog -->(e dei due template del blog) <!-- /se -->aggiungi:
+
+```html
+<script defer data-domain="%DOMINIO_NUDO%" src="https://plausible.io/js/script.js"></script>
+```
+
+- Nella privacy policy cita Plausible Insights OÜ (Estonia, UE) come fornitore delle statistiche, in forma anonima e senza cookie.
+- Nella cookie policy non cambia nulla: Plausible non usa cookie.
+<!-- /se -->
+<!-- se:no-analytics -->
+
+**Statistiche**: il sito **non** ha statistiche delle visite. Non aggiungere Google Analytics, Tag Manager, pixel o altri script di analytics.
+Se il cliente le vuole, l'agenzia le attiva nel gestionale e questa guida si aggiorna con le istruzioni.
+<!-- /se -->
+
+### Dopo la messa online
+
+- [PageSpeed Insights](https://pagespeed.web.dev/) da mobile: punteggio verde.
+- [Test dei risultati multimediali](https://search.google.com/test/rich-results) sulla home: dati strutturati senza errori.
+- Search Console: sitemap inviata, nessuna pagina importante esclusa.
+- Ricerca `site:dominio-cliente.it` su Google dopo qualche giorno: le pagine compaiono.
 
 ---
 
@@ -847,7 +1001,9 @@ Prima di consegnare il sito:
 
 - [ ] Ogni pagina si apre al suo indirizzo con la barra finale (`/chi-siamo/`) e nessun link porta a una 404.
 - [ ] Un indirizzo inesistente mostra la `404.html` con header e footer.
-- [ ] Title, description e canonical diversi e corretti in ogni pagina; un solo `h1` per pagina.
+- [ ] Title, description e canonical diversi e corretti in ogni pagina; un solo `h1` per pagina, con l'argomento della pagina.
+- [ ] Nome, indirizzo e telefono identici in footer, contatti e dati strutturati; tipo di dati strutturati adatto all'attività.
+- [ ] Immagini con nomi parlanti; hero senza `loading="lazy"`; PageSpeed mobile verde.
 - [ ] `sitemap.xml` con tutte le pagine; `robots.txt` con il dominio giusto.
 - [ ] Il sito funziona a 375, 768, 1366 e 1920 px, senza scroll orizzontale.
 - [ ] Immagini in WebP, con `alt`, `width`, `height`; `loading="lazy"` sotto la prima schermata.

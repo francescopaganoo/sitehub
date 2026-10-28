@@ -35,16 +35,26 @@ final class Guide
     {
         $modules = $site['modules'] ?? [];
         $cookies = SitesApi::cookieSettings($site);
+        $seo = SitesApi::seoSettings($site);
         $categories = !empty($modules['cookies']) ? $cookies['categories'] : [];
+        if ($seo['analytics'] === 'ga4' && !in_array('statistics', $categories, true)) {
+            $categories[] = 'statistics'; // Google Analytics richiede il consenso
+        }
         $categoryNames = implode(' e ', array_map(fn($c) => self::CATEGORY_NAMES[$c] ?? $c, $categories));
+        if ($seo['analytics'] === 'ga4') {
+            $categoryNames .= ' (Google Analytics)';
+        }
 
         $blocks = ['sito', empty($modules['forms']) ? 'no-form' : 'form', empty($modules['blog']) ? 'no-blog' : 'blog'];
         $blocks = array_merge($blocks, $categories ? ['consenso', 'sito-consenso'] : ['tecnici']);
+        $blocks[] = $seo['search_console'] === 'meta' ? 'sc-meta' : 'sc-dns';
+        $blocks[] = match ($seo['analytics']) { 'ga4' => 'ga4', 'plausible' => 'plausible', default => 'no-analytics' };
 
         $summary = [
             empty($modules['forms']) ? 'nessun form di contatto' : 'form di contatto collegati a SiteHub',
             $categories ? "servizi con consenso dei visitatori ($categoryNames)" : 'solo cookie tecnici',
             empty($modules['blog']) ? 'nessun blog' : 'blog gestito da SiteHub',
+            match ($seo['analytics']) { 'ga4' => 'statistiche con Google Analytics', 'plausible' => 'statistiche con Plausible (senza cookie)', default => 'nessuna statistica delle visite' },
         ];
         $domain = rtrim($site['domain'], '/');
 
@@ -57,6 +67,9 @@ final class Guide
             '%MODULI%' => implode(', ', $summary),
             '%URL_GUIDA%' => self::siteUrl($site['public_key']),
             '%CATEGORIE%' => $categoryNames,
+            '%DOMINIO_NUDO%' => preg_replace('~^https?://(www\.)?~', '', $domain),
+            '%SC_CODICE%' => $seo['search_console_code'] ?: 'CODICE-DI-VERIFICA',
+            '%GA4_ID%' => $seo['ga4_id'] ?: 'G-XXXXXXXXXX',
         ]);
     }
 
@@ -70,6 +83,8 @@ final class Guide
     {
         $text = (string) file_get_contents(self::file());
         $text = preg_replace('~\A<!--.*?-->\n~s', '', $text); // intestazione per chi modifica il file
+        // blocchi dentro una riga ("e `sitemap-blog.xml`" solo col blog), poi quelli su più righe
+        $text = preg_replace_callback('~<!-- se:([\w-]+) -->([^\n]*?)<!-- /se -->~', fn($m) => in_array($m[1], $blocks, true) ? $m[2] : '', $text);
         // dal blocco più interno all'esterno: il contenuto di un blocco non contiene altre aperture
         $block = '~^<!-- se:([\w-]+) -->\n((?:(?!^<!-- se:)[\s\S])*?)^<!-- /se -->\n~m';
         do {

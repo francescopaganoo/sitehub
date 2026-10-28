@@ -115,6 +115,22 @@ final class SitesApi extends Api
         if (array_key_exists('cookies', $in)) {
             $config['cookies'] = $this->validCookies($in['cookies'], $config['cookies'] ?? [], $errors);
         }
+        if (array_key_exists('seo', $in)) {
+            $config['seo'] = $this->validSeo($in['seo'], $config['seo'] ?? [], $errors);
+            $categories = $config['cookies']['categories'] ?? [];
+            if (($config['seo']['analytics'] ?? '') === 'ga4') {
+                // Google Analytics usa cookie: banner attivo con la categoria Statistiche
+                $set['modules'] = ['cookies' => true] + ($set['modules'] ?? $site['modules']);
+                if (!in_array('statistics', $categories, true)) {
+                    $categories[] = 'statistics';
+                    $config['cookies']['auto_statistics'] = true; // aggiunta da qui: si toglie se Analytics viene tolto
+                }
+            } elseif (!empty($config['cookies']['auto_statistics'])) {
+                $categories = array_values(array_diff($categories, ['statistics']));
+                unset($config['cookies']['auto_statistics']);
+            }
+            $config['cookies']['categories'] = $categories;
+        }
         if (($config['blog']['image_ratio'] ?? '') !== '' && !preg_match('~^[1-9]\d?:[1-9]\d?$~', $config['blog']['image_ratio'])) {
             $errors['blog.image_ratio'] = 'Formato dell\'immagine in evidenza, es. "16:10"; vuoto = libero';
         }
@@ -259,6 +275,66 @@ final class SitesApi extends Api
         return $current;
     }
 
+    /**
+     * Search Console e statistiche: decidono cosa dice la guida del sito (sezione SEO).
+     * search_console: dns (consigliato, non tocca l'HTML) | meta (riga nel <head> con search_console_code)
+     * analytics: "" | ga4 (con ga4_id, richiede consenso) | plausible (senza cookie)
+     */
+    private function validSeo(mixed $in, array $current, array &$errors): array
+    {
+        if (!is_array($in)) {
+            $errors['seo'] = 'Oggetto: search_console, search_console_code, analytics, ga4_id';
+            return $current;
+        }
+        if (array_key_exists('search_console', $in)) {
+            $current['search_console'] = (string) $in['search_console'];
+            if (!in_array($current['search_console'], ['dns', 'meta'], true)) {
+                $errors['seo.search_console'] = 'Valori ammessi: dns, meta';
+            }
+        }
+        if (array_key_exists('search_console_code', $in)) {
+            // si accetta anche la riga intera copiata da Search Console: si tiene solo il codice
+            $code = trim((string) $in['search_console_code']);
+            if (preg_match('~content="([^"]+)"~', $code, $m)) {
+                $code = $m[1];
+            }
+            $current['search_console_code'] = $code;
+            if ($code !== '' && !preg_match('~^[\w-]{10,100}$~', $code)) {
+                $errors['seo.search_console_code'] = 'Il codice di verifica di Search Console (lettere, numeri, - e _)';
+            }
+        }
+        if (array_key_exists('analytics', $in)) {
+            $current['analytics'] = (string) $in['analytics'];
+            if (!in_array($current['analytics'], ['', 'ga4', 'plausible'], true)) {
+                $errors['seo.analytics'] = 'Valori ammessi: "" (nessuna), ga4, plausible';
+            }
+        }
+        if (array_key_exists('ga4_id', $in)) {
+            $current['ga4_id'] = strtoupper(trim((string) $in['ga4_id']));
+            if ($current['ga4_id'] !== '' && !preg_match('~^G-[A-Z0-9]{4,15}$~', $current['ga4_id'])) {
+                $errors['seo.ga4_id'] = 'ID di misurazione di Google Analytics 4, es. G-AB12CD34EF';
+            }
+        }
+        if (($current['search_console'] ?? '') === 'meta' && ($current['search_console_code'] ?? '') === '') {
+            $errors['seo.search_console_code'] = 'Con la verifica tramite meta tag serve il codice';
+        }
+        if (($current['analytics'] ?? '') === 'ga4' && ($current['ga4_id'] ?? '') === '') {
+            $errors['seo.ga4_id'] = 'Con Google Analytics serve l\'ID di misurazione (G-…)';
+        }
+        return $current;
+    }
+
+    public static function seoSettings(array $site): array
+    {
+        $s = $site['config']['seo'] ?? [];
+        return [
+            'search_console'      => $s['search_console'] ?? 'dns',
+            'search_console_code' => $s['search_console_code'] ?? '',
+            'analytics'           => $s['analytics'] ?? '',
+            'ga4_id'              => $s['ga4_id'] ?? '',
+        ];
+    }
+
     /** Impostazioni del banner cookie con i valori predefiniti. */
     public static function cookieSettings(array $site): array
     {
@@ -319,6 +395,7 @@ final class SitesApi extends Api
             'modules'      => $site['modules'],
             'origins'      => $site['origins'],
             'cookies'      => self::cookieSettings($site),
+            'seo'          => self::seoSettings($site),
             'blog'         => array_intersect_key($site['config']['blog'] ?? [], array_flip(self::BLOG_FIELDS)) ?: null,
             'imported'     => !empty($site['templates']),
             'layout'       => $site['config']['layout'] ?? null, // clone | static (dopo l'import del blog)
