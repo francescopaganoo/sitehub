@@ -107,6 +107,8 @@ final class Embed
         }
 
         $js = "/* pannello embed " . self::VERSION . " - {$site['slug']} */\n(function (SSG) {\n'use strict';\n";
+        // base: elementi con data-ssg-modulo mostrati o nascosti secondo i moduli attivi
+        $js .= file_get_contents(__DIR__ . '/../assets/embed/core.js') . "\n";
         foreach (self::MODULES as $name => $file) {
             if (!empty($modules[$name])) {
                 $js .= file_get_contents(__DIR__ . "/../assets/embed/$file") . "\n";

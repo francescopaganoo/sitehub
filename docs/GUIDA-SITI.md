@@ -386,6 +386,18 @@ Se il sito non è ancora registrato, lascia un commento `<!-- script SiteHub -->
 <!-- /se -->
 La chiave è pubblica: può stare nell'HTML.
 
+### Elementi legati a un modulo
+
+Un elemento che ha senso solo se un modulo è attivo (la voce "Blog" del menu, un blocco "Ultimi articoli", un invito a scriverci)
+si scrive con `data-ssg-modulo` e **nascosto** (`hidden`): lo script lo mostra solo se il modulo è attivo nel gestionale.
+Così attivare o disattivare un modulo non richiede di modificare l'HTML (il cambiamento arriva entro 5 minuti).
+
+```html
+<li data-ssg-modulo="blog" hidden><a href="/blog/">Blog</a></li>
+```
+
+Moduli: `blog`, `forms`, `cookies`. Più moduli separati da spazio (`data-ssg-modulo="blog forms"`) = visibile se almeno uno è attivo.
+
 <!-- se:form -->
 ### Form di contatto
 
@@ -497,7 +509,10 @@ usando due template HTML che crei tu, e le pubblica nel repo (commit + deploy au
 
 1. **`_sitehub/templates/articolo.html`**: la pagina di un articolo.
 2. **`_sitehub/templates/blog.html`**: l'elenco degli articoli (usato per `/blog/`, per le pagine delle categorie e per `/blog/page/2/`…).
-3. La voce **"Blog"** nel menu di tutte le pagine, con link a `/blog/`.
+3. La voce **"Blog"** nel menu (e nel footer) di tutte le pagine, scritta così: si vede solo se il blog è attivo nel gestionale.
+   ```html
+   <li data-ssg-modulo="blog" hidden><a href="/blog/">Blog</a></li>
+   ```
 4. In `robots.txt` la riga `Sitemap: https://www.dominio-cliente.it/sitemap-blog.xml` (sotto quella di `sitemap.xml`).
 
 Indirizzi generati da SiteHub (non creare file in queste cartelle):
@@ -854,7 +869,7 @@ Prima di consegnare il sito:
 - [ ] `./versione.sh` lanciato dopo l'ultima modifica a CSS o JS.
 - [ ] `Dockerfile`, `nginx.conf`, `.dockerignore` presenti, con le righe per `_sitehub`.
 <!-- se:blog -->
-- [ ] Blog: `_sitehub/templates/articolo.html` e `blog.html` con header e footer aggiornati, voce "Blog" nel menu,
+- [ ] Blog: `_sitehub/templates/articolo.html` e `blog.html` con header e footer aggiornati, voce "Blog" nel menu con `data-ssg-modulo="blog" hidden`,
       `sitemap-blog.xml` in `robots.txt`, stile degli articoli in `style.css`.
 <!-- /se -->
 

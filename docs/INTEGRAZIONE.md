@@ -23,6 +23,13 @@ La chiave è pubblica: può stare nell'HTML senza problemi.
 
 Lo script carica solo i moduli attivi per quel sito. Attivare o disattivare un modulo dal pannello non richiede modifiche all'HTML.
 
+Gli elementi che hanno senso solo con un modulo attivo (es. la voce "Blog" del menu) si scrivono nascosti e con `data-ssg-modulo`:
+lo script li mostra solo se il modulo è attivo.
+
+```html
+<li data-ssg-modulo="blog" hidden><a href="/blog/">Blog</a></li>
+```
+
 ## 2. Form di contatto
 
 Basta aggiungere `data-ssg-form` al tag `<form>`, con un nome che identifica il modulo:
