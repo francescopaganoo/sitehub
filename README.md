@@ -44,8 +44,10 @@ Le regole complete sono nella guida: https://hub.planstudios.it/guida.md
 5. **Pagine in più**: una cartella per pagina (`servizi/index.html`), con lo stesso header e footer; aggiungile a menu e `sitemap.xml`.
 6. **SiteHub**: registra il sito dal gestionale, poi sostituisci il commento `<!-- script SiteHub … -->` in **tutte** le pagine
    e nei due template con la riga dello script del sito.
-7. **Blog**: se il sito non ha il blog, elimina `_sitehub/`, la voce "Blog" da menu e footer e la riga `sitemap-blog.xml` in `robots.txt`.
-   Se lo ha, dopo il primo deploy collega il blog dal gestionale (pagina del sito → Blog → Collega il blog).
+7. **Blog**: la voce "Blog" di menu e footer (`data-ssg-modulo="blog" hidden`) si vede solo se il blog è attivo nel gestionale,
+   quindi si può lasciare anche ai siti che per ora non ce l'hanno. Se il sito non avrà mai il blog, elimina `_sitehub/`, quella voce
+   e la riga `sitemap-blog.xml` in `robots.txt`. Se lo ha, dopo il primo deploy collega il blog dal gestionale
+   (pagina del sito → Blog → Collega il blog).
 8. **Prima del commit**: `./versione.sh`, poi i controlli finali della guida (sezione 16). Repo su GitHub e app su Coolify.
 
 ## Con un LLM
