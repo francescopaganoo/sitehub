@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 process.env.EDITOR_TOKEN ||= 'test-editor';
 process.env.GITHUB_TOKEN ||= 'test-github';
-const { authEnvironment } = await import('../src/agent.js');
+const { authEnvironment, resultError, redact, explain } = await import('../src/agent.js');
 
 test('le modalità non ereditano né mescolano le credenziali', () => {
   const before = { api: process.env.ANTHROPIC_API_KEY, oauth: process.env.CLAUDE_CODE_OAUTH_TOKEN };
@@ -23,4 +23,18 @@ test('le modalità non ereditano né mescolano le credenziali', () => {
     if (before.oauth === undefined) delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
     else process.env.CLAUDE_CODE_OAUTH_TOKEN = before.oauth;
   }
+});
+
+
+test('errori di esecuzione: causa strutturata, fallback e credenziali nascoste', () => {
+  assert.equal(resultError({ subtype: 'error_during_execution', errors: ['Actual SDK failure'] }), 'Actual SDK failure');
+  assert.equal(resultError({ subtype: 'error_during_execution', errors: [] }, 'stderr detail'), 'stderr detail');
+  assert.match(resultError({ subtype: 'error_during_execution' }), /non ha fornito dettagli/);
+  assert.equal(resultError({ subtype: 'error_max_turns', errors: ['x'] }), 'error_max_turns');
+  assert.equal(resultError({ subtype: 'success', result: 'API failed' }), 'API failed');
+  assert.ok(!redact('bad custom-secret sk-ant-oat01-hidden', ['custom-secret']).includes('custom-secret'));
+  assert.ok(!redact('bad sk-ant-oat01-hidden').includes('sk-ant-'));
+  assert.match(explain('No conversation found with session ID abc'), /nuova sessione/);
+  assert.match(explain('Model not found'), /modello/);
+  assert.match(explain('EACCES writing config'), /permessi/);
 });

@@ -89,6 +89,8 @@ export async function* runMessage(meta, root, text, { authMode = 'api', apiKey, 
     return;
   }
   const denied = [];
+  let diagnostics = '';
+  const safeError = (raw) => explain(redact(raw, [apiKey, oauthToken]));
   const abortController = new AbortController();
   signal?.addEventListener('abort', () => abortController.abort());
 
@@ -113,6 +115,7 @@ export async function* runMessage(meta, root, text, { authMode = 'api', apiKey, 
       maxBudgetUsd: config.maxBudgetUsd,
       resume: meta.claudeSession || undefined,
       abortController,
+      stderr: (chunk) => { diagnostics = (diagnostics + redact(chunk, [apiKey, oauthToken])).slice(-6000); },
       // ambiente minimo: niente token GitHub o altre variabili del servizio nel processo di Claude
       env: authEnvironment({ authMode, apiKey, oauthToken }),
     },
@@ -138,7 +141,7 @@ export async function* runMessage(meta, root, text, { authMode = 'api', apiKey, 
         yield {
           type: 'done',
           ok: !failed,
-          error: failed ? explain(message.subtype === 'success' ? message.result : message.subtype) : null,
+          error: failed ? safeError(resultError(message, diagnostics)) : null,
           claudeSession: message.session_id,
           costUsd: message.total_cost_usd,
           turns: message.num_turns,
@@ -147,19 +150,36 @@ export async function* runMessage(meta, root, text, { authMode = 'api', apiKey, 
     }
   } catch (e) {
     // dopo un risultato con errore il SDK solleva anche un'eccezione: l'esito è già stato dato
-    if (!finished) throw new Error(explain(e.message));
+    if (!finished) throw new Error(safeError([e.message, diagnostics].filter(Boolean).join('\n')));
   }
+}
+
+/** Errori strutturati dell’SDK: il subtype da solo nasconde la causa reale. */
+export function resultError(message, diagnostics = '') {
+  if (message.subtype === 'success') return message.result || 'Errore durante l’esecuzione di Claude';
+  if (message.subtype !== 'error_during_execution') return message.subtype;
+  const details = Array.isArray(message.errors) ? message.errors.filter(e => typeof e === 'string' && e.trim()).join('\n') : '';
+  return details || diagnostics.trim() || 'Claude non ha completato la richiesta e non ha fornito dettagli. Prova una nuova sessione; se persiste, controlla i log del servizio editor.';
+}
+
+export function redact(raw, secrets = []) {
+  let text = String(raw || '');
+  for (const secret of secrets) if (secret) text = text.split(secret).join('[credenziale nascosta]');
+  return text.replace(/sk-ant-[A-Za-z0-9_-]+/g, '[credenziale nascosta]');
 }
 
 /** Errori del SDK in parole comprensibili per chi usa il gestionale. */
 export function explain(raw) {
   const text = String(raw || '');
   if (/invalid api key|authentication|oauth|token.*expired|401/i.test(text)) return 'Credenziale Claude non valida o scaduta: controlla API key o token dell’abbonamento nelle impostazioni AI del gestionale.';
+  if (/model.*(not found|not available|not supported|does not exist)|invalid.*model|unknown model/i.test(text)) return 'Il modello Claude selezionato non è disponibile: cambialo nelle impostazioni AI e riprova.';
+  if (/no conversation found|session.*not found|cannot resume|could not.*resume/i.test(text)) return 'La sessione Claude precedente non è più disponibile sul server. Apri una nuova sessione di modifica del sito.';
+  if (/EACCES|permission denied|read.only file system/i.test(text)) return 'Claude non può accedere alle sue cartelle sul server: controlla i permessi della cartella HOME e del volume del servizio editor.';
   if (/credit balance|billing|402/i.test(text)) return 'Credito Anthropic esaurito: ricaricalo sulla console di Anthropic.';
   if (/rate.?limit|429|overloaded|529/i.test(text)) return 'Claude è sovraccarico o il limite di richieste è stato raggiunto: riprova tra qualche minuto.';
   if (text === 'error_max_budget_usd') return 'Raggiunto il tetto di spesa per questa richiesta: dividila in richieste più piccole.';
   if (text === 'error_max_turns') return 'La richiesta era troppo lunga da completare in una volta: dividila in passi più piccoli.';
-  return text || 'Errore sconosciuto';
+  return text.slice(0, 2000) || 'Errore sconosciuto';
 }
 
 /**
