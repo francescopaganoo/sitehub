@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://www.dominio-cliente.it/sitemap.xml
+Sitemap: https://www.dominio-cliente.it/sitemap-blog.xml
