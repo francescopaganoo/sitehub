@@ -36,11 +36,12 @@ export async function get(id) {
   }
 }
 
-export async function list(repo) {
+/** Sessioni, filtrate per sito (slug del gestionale) o per repo. */
+export async function list({ slug, repo } = {}) {
   const dir = path.join(config.dataDir, 'sessions');
   const files = await fs.readdir(dir).catch(() => []);
   const all = await Promise.all(files.filter((f) => f.endsWith('.json')).map((f) => fs.readFile(path.join(dir, f), 'utf8').then(JSON.parse).catch(() => null)));
-  return all.filter((m) => m && (!repo || m.repo === repo)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  return all.filter((m) => m && (!repo || m.repo === repo) && (!slug || m.slug === slug)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 async function fetchGuide(url) {
@@ -55,9 +56,9 @@ async function fetchGuide(url) {
 
 const hasTemplates = (root) => fs.access(path.join(root, '_sitehub/templates')).then(() => true, () => false);
 
-function base({ kind, repo, branch, siteName, domain, guideUrl, user }) {
+function base({ kind, slug, repo, branch, siteName, domain, guideUrl, user }) {
   return {
-    id: newId(), kind, repo, branch: branch || 'main', siteName, domain, guideUrl,
+    id: newId(), kind, slug: slug || null, repo, branch: branch || 'main', siteName, domain, guideUrl,
     previewKey: crypto.randomBytes(16).toString('hex'),
     claudeSession: null, costUsd: 0, history: [], published: [],
     createdBy: user, createdAt: new Date().toISOString(),
@@ -65,9 +66,9 @@ function base({ kind, repo, branch, siteName, domain, guideUrl, user }) {
 }
 
 /** Modifica di un sito esistente: si scarica il repo. */
-export async function create({ repo, branch, siteName, domain, guideUrl, user }) {
+export async function create({ slug, repo, branch, siteName, domain, guideUrl, user }) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo || '')) throw new SessionError(422, 'Repo non valido (proprietario/nome)');
-  const meta = base({ kind: 'edit', repo, branch, siteName, domain, guideUrl, user });
+  const meta = base({ kind: 'edit', slug, repo, branch, siteName, domain, guideUrl, user });
   const root = workDir(meta.id);
   await fs.mkdir(path.dirname(root), { recursive: true });
   try {
@@ -81,10 +82,10 @@ export async function create({ repo, branch, siteName, domain, guideUrl, user })
 }
 
 /** Sito nuovo: repo creato su GitHub, starter come primo commit, poi si lavora come su un sito esistente. */
-export async function createSite({ repoName, description, siteName, domain, guideUrl, sitehubSnippet, user }) {
+export async function createSite({ slug, repoName, description, siteName, domain, guideUrl, sitehubSnippet, user }) {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(repoName || '')) throw new SessionError(422, 'Nome del repo: lettere minuscole, numeri e trattini');
   const repo = await git.createRepo(repoName, description || `Sito ${siteName}`).catch((e) => { throw new SessionError(422, e.message); });
-  const meta = base({ kind: 'new', repo, branch: 'main', siteName, domain, guideUrl, user });
+  const meta = base({ kind: 'new', slug, repo, branch: 'main', siteName, domain, guideUrl, user });
   const root = workDir(meta.id);
   await fs.mkdir(root, { recursive: true });
   await prepareFromStarter(root, { sitehubSnippet });
@@ -172,6 +173,31 @@ export async function publish(id, { message, branch, user }) {
   meta.published.push({ sha, branch: branch || meta.branch, at: new Date().toISOString(), by: user?.name || null, files: files.length });
   await save(meta);
   return { sha, branch: branch || meta.branch, files };
+}
+
+const IMAGE = /\.(webp|png|jpe?g|gif|svg|ico|avif)$/i;
+
+/**
+ * Immagine caricata nella sessione (logo, foto del cliente): solo in assets/, solo immagini.
+ * Il nome viene ripulito (minuscole, trattini); se esiste già si aggiunge un numero.
+ */
+export async function upload(id, requested, data) {
+  await get(id);
+  const root = workDir(id);
+  const clean = String(requested || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .split('/').map((part) => part.replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')).filter(Boolean).join('/');
+  if (!clean.startsWith('assets/') || !IMAGE.test(clean) || clean.includes('..') || clean.startsWith('assets/blog/')) {
+    throw new SessionError(422, 'Si possono caricare solo immagini in assets/ (es. assets/img/logo.webp)');
+  }
+  if (!data?.length) throw new SessionError(422, 'File vuoto');
+  if (data.length > 15 * 1024 * 1024) throw new SessionError(413, 'File troppo grande (massimo 15 MB)');
+  let target = clean;
+  for (let n = 2; await fs.access(path.join(root, target)).then(() => true, () => false); n++) {
+    target = clean.replace(/(\.[a-z0-9]+)$/, `-${n}$1`);
+  }
+  await fs.mkdir(path.dirname(path.join(root, target)), { recursive: true });
+  await fs.writeFile(path.join(root, target), data);
+  return { path: target, bytes: data.length };
 }
 
 /** Annulla le modifiche non pubblicate (la chat resta). */

@@ -2,9 +2,10 @@
 // il browser vede direttamente solo le anteprime, con una chiave casuale per sessione.
 //
 //   GET    /health
-//   GET    /api/sessions?repo=org/nome                sessioni (per sito)
-//   POST   /api/sessions                              modifica di un sito: {repo, branch, siteName, domain, guideUrl, user}
-//   POST   /api/sites                                 sito nuovo dallo starter: {repoName, description, siteName, domain, guideUrl, sitehubSnippet, user}
+//   GET    /api/info                                  organizzazione GitHub dei siti nuovi
+//   GET    /api/sessions?slug=…&repo=org/nome         sessioni (per sito)
+//   POST   /api/sessions                              modifica di un sito: {slug, repo, branch, siteName, domain, guideUrl, user}
+//   POST   /api/sites                                 sito nuovo dallo starter: {slug, repoName, description, siteName, domain, guideUrl, sitehubSnippet, user}
 //   GET    /api/sessions/:id
 //   POST   /api/sessions/:id/messages                 chat: {text, apiKey, model, effort, user} → eventi (text/event-stream)
 //   POST   /api/sessions/:id/stop                     interrompe Claude
@@ -12,6 +13,7 @@
 //   GET    /api/sessions/:id/diff                     differenze (testo)
 //   POST   /api/sessions/:id/publish                  {message, branch, user} → commit e push
 //   POST   /api/sessions/:id/discard                  annulla le modifiche non pubblicate
+//   PUT    /api/sessions/:id/files?path=assets/…      carica un'immagine (corpo della richiesta = file)
 //   DELETE /api/sessions/:id                          chiude la sessione
 //   GET    /api/starter.zip                           starter da scaricare
 //   GET    /anteprima/{chiave}/…                      anteprima del sito (pubblica, chiave casuale)
@@ -52,6 +54,17 @@ async function readJson(req) {
   } catch {
     throw new sessions.SessionError(400, 'JSON non valido');
   }
+}
+
+async function readRaw(req) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > 15 * 1024 * 1024) throw new sessions.SessionError(413, 'File troppo grande (massimo 15 MB)');
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
 }
 
 async function preview(req, res, key, rest) {
@@ -115,10 +128,11 @@ async function route(req, res) {
   if (!p.startsWith('/api/')) return json(res, 404, { message: 'Non trovato' });
   if (!authorized(req)) return json(res, 401, { message: 'Non autorizzato' });
 
-  if (p === '/api/sessions' && req.method === 'GET') return json(res, 200, { sessions: (await sessions.list(url.searchParams.get('repo'))).map(sessions.view) });
+  if (p === '/api/sessions' && req.method === 'GET') return json(res, 200, { sessions: (await sessions.list({ slug: url.searchParams.get('slug'), repo: url.searchParams.get('repo') })).map(sessions.view) });
   if (p === '/api/sessions' && req.method === 'POST') return json(res, 201, { session: sessions.view(await sessions.create(await readJson(req))) });
   if (p === '/api/sites' && req.method === 'POST') return json(res, 201, { session: sessions.view(await sessions.createSite(await readJson(req))) });
   if (p === '/api/starter.zip' && req.method === 'GET') return starterZip(res);
+  if (p === '/api/info' && req.method === 'GET') return json(res, 200, { githubOrg: config.githubOrg });
 
   if ((match = m(/^\/api\/sessions\/([^/]+)(\/[a-z]+)?$/))) {
     const [, id, action = ''] = match;
@@ -131,6 +145,7 @@ async function route(req, res) {
       case 'GET /diff': return json(res, 200, { diff: await sessions.diff(id) });
       case 'POST /publish': return json(res, 200, await sessions.publish(id, await readJson(req)));
       case 'POST /discard': await sessions.discard(id); return json(res, 200, { files: [] });
+      case 'PUT /files': return json(res, 201, await sessions.upload(id, url.searchParams.get('path'), await readRaw(req)));
       case 'DELETE ': await sessions.remove(id); return json(res, 200, { deleted: id });
     }
   }

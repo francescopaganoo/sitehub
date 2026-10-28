@@ -166,6 +166,20 @@ test('pubblicazione su un altro ramo, solo se richiesto', async () => {
   assert.doesNotMatch(sh(bare, 'show', 'main:index.html'), /Antennistica/);
 });
 
+test('caricamento di immagini: solo in assets/, nome ripulito, mai sopra un file esistente', async () => {
+  const put = (p, data) => fetch(`${base}/api/sessions/${session.id}/files?path=${encodeURIComponent(p)}`, { method: 'PUT', headers: { Authorization: `Bearer ${TOKEN}` }, body: data }).then(async (r) => ({ status: r.status, body: await r.json() }));
+  const png = Buffer.from('89504e470d0a1a0a', 'hex');
+  let r = await put('assets/img/Logo Officina.PNG', png);
+  assert.equal(r.status, 201);
+  assert.equal(r.body.path, 'assets/img/logo-officina.png');
+  r = await put('assets/img/logo-officina.png', png);
+  assert.equal(r.body.path, 'assets/img/logo-officina-2.png');
+  for (const bad of ['index.html', 'assets/img/x.js', '../fuori.png', 'assets/blog/2026/x.png', 'style.css']) {
+    assert.equal((await put(bad, png)).status, 422, bad);
+  }
+  await api('POST', `/api/sessions/${session.id}/discard`);
+});
+
 test('annulla le modifiche non pubblicate', async () => {
   await chat(session.id, 'sostituisci «Chi siamo» con «La nostra storia»');
   assert.ok((await api('GET', `/api/sessions/${session.id}/changes`)).body.files.length > 0);
