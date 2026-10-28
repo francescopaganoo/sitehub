@@ -4,7 +4,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { config } from './config.js';
+import { config, claudeDir } from './config.js';
 
 export const TOOLS = ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebFetch', 'WebSearch'];
 const BLOCKED_TOOLS = ['Bash', 'Agent', 'Task', 'NotebookEdit', 'Workflow'];
@@ -83,17 +83,61 @@ export function authEnvironment({ authMode = 'api', apiKey, oauthToken }) {
   return {
     PATH: process.env.PATH,
     HOME: process.env.HOME || '/tmp',
+    CLAUDE_CONFIG_DIR: claudeDir(),
     ...(authMode === 'subscription'
       ? { CLAUDE_CODE_OAUTH_TOKEN: oauthToken }
       : { ANTHROPIC_API_KEY: apiKey }),
   };
 }
 
-export async function* runMessage(meta, root, text, { authMode = 'api', apiKey, oauthToken, model, effort, signal }) {
+const MISSING_SESSION = 'La sessione Claude precedente non è più disponibile sul server. Apri una nuova sessione di modifica del sito.';
+
+/**
+ * Richiesta con la chat precedente riassunta: serve quando la conversazione di Claude non si può riprendere
+ * (es. cronologia persa con un deploy). La storia della sessione sta nei dati dell'editor, quindi non si perde.
+ */
+export function withContext(history, text) {
+  const turns = history.filter((t) => t.text?.trim()).slice(-12)
+    .map((t) => `${t.role === 'user' ? 'Persona' : 'Claude'}: ${t.text.trim().slice(0, 1500)}`);
+  if (!turns.length) return text;
+  return `La conversazione precedente su questo sito non è più disponibile: eccola riassunta, per contesto. `
+    + `I file del sito sono già nello stato attuale (comprese le modifiche fatte finora).\n\n${turns.join('\n\n')}\n\n=== NUOVA RICHIESTA ===\n${text}`;
+}
+
+/**
+ * Riprende la conversazione di Claude della sessione; se non è più disponibile, ne inizia una nuova
+ * con la chat precedente come contesto, senza errori per chi la usa.
+ */
+export async function* runMessage(meta, root, text, options) {
   if (config.fakeAgent) {
     yield* fakeRun(root, text);
     return;
   }
+  await fs.mkdir(claudeDir(), { recursive: true }).catch(() => {});
+  if (meta.claudeSession) {
+    let missing = false;
+    let started = false;
+    try {
+      for await (const event of attempt(meta, root, text, meta.claudeSession, options)) {
+        if (!started && event.type === 'done' && !event.ok && event.error === MISSING_SESSION) {
+          missing = true;
+          break;
+        }
+        started = true;
+        yield event;
+      }
+    } catch (e) {
+      if (started || e.message !== MISSING_SESSION) throw e;
+      missing = true;
+    }
+    if (!missing) return;
+  }
+  // la storia contiene già la richiesta in corso e la risposta vuota: si escludono
+  const previous = meta.claudeSession ? meta.history.slice(0, -2) : [];
+  yield* attempt(meta, root, withContext(previous, text), undefined, options);
+}
+
+async function* attempt(meta, root, text, resume, { authMode = 'api', apiKey, oauthToken, model, effort, signal }) {
   const denied = [];
   let diagnostics = '';
   const safeError = (raw) => explain(redact(raw, [apiKey, oauthToken]));
@@ -119,7 +163,7 @@ export async function* runMessage(meta, root, text, { authMode = 'api', apiKey, 
       includePartialMessages: true,
       maxTurns: 60,
       maxBudgetUsd: config.maxBudgetUsd,
-      resume: meta.claudeSession || undefined,
+      resume,
       abortController,
       stderr: (chunk) => { diagnostics = (diagnostics + redact(chunk, [apiKey, oauthToken])).slice(-6000); },
       // ambiente minimo: niente token GitHub o altre variabili del servizio nel processo di Claude
@@ -179,7 +223,7 @@ export function explain(raw) {
   const text = String(raw || '');
   if (/invalid api key|authentication|oauth|token.*expired|401/i.test(text)) return 'Credenziale Claude non valida o scaduta: controlla API key o token dell’abbonamento nelle impostazioni AI del gestionale.';
   if (/model.*(not found|not available|not supported|does not exist)|invalid.*model|unknown model/i.test(text)) return 'Il modello Claude selezionato non è disponibile: cambialo nelle impostazioni AI e riprova.';
-  if (/no conversation found|session.*not found|cannot resume|could not.*resume/i.test(text)) return 'La sessione Claude precedente non è più disponibile sul server. Apri una nuova sessione di modifica del sito.';
+  if (/no conversation found|session.*not found|cannot resume|could not.*resume/i.test(text)) return MISSING_SESSION;
   if (/EACCES|permission denied|read.only file system/i.test(text)) return 'Claude non può accedere alle sue cartelle sul server: controlla i permessi della cartella HOME e del volume del servizio editor.';
   if (/credit balance|billing|402/i.test(text)) return 'Credito Anthropic esaurito: ricaricalo sulla console di Anthropic.';
   if (/rate.?limit|429|overloaded|529/i.test(text)) return 'Claude è sovraccarico o il limite di richieste è stato raggiunto: riprova tra qualche minuto.';

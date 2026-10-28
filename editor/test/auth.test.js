@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 process.env.EDITOR_TOKEN ||= 'test-editor';
 process.env.GITHUB_TOKEN ||= 'test-github';
-const { authEnvironment, resultError, redact, explain } = await import('../src/agent.js');
+const { authEnvironment, resultError, redact, explain, withContext } = await import('../src/agent.js');
 
 test('le modalità non ereditano né mescolano le credenziali', () => {
   const before = { api: process.env.ANTHROPIC_API_KEY, oauth: process.env.CLAUDE_CODE_OAUTH_TOKEN };
@@ -16,6 +16,7 @@ test('le modalità non ereditano né mescolano le credenziali', () => {
     assert.equal(api.ANTHROPIC_API_KEY, 'selected-api');
     assert.ok(!('CLAUDE_CODE_OAUTH_TOKEN' in api));
     assert.ok(!('GITHUB_TOKEN' in api));
+    assert.match(api.CLAUDE_CONFIG_DIR, /claude$/, 'cronologia di Claude nel volume dei dati, non in HOME');
     assert.throws(() => authEnvironment({ authMode: 'invalid' }));
   } finally {
     if (before.api === undefined) delete process.env.ANTHROPIC_API_KEY;
@@ -37,4 +38,18 @@ test('errori di esecuzione: causa strutturata, fallback e credenziali nascoste',
   assert.match(explain('No conversation found with session ID abc'), /nuova sessione/);
   assert.match(explain('Model not found'), /modello/);
   assert.match(explain('EACCES writing config'), /permessi/);
+});
+
+test('conversazione non più riprendibile: si riparte con la chat precedente come contesto', () => {
+  const history = [
+    { role: 'user', text: 'Cambia il telefono nel footer' },
+    { role: 'assistant', text: 'Fatto: ora è +39 333 123 4567.' },
+    { role: 'assistant', text: '' },
+  ];
+  const prompt = withContext(history, 'Mettilo anche nella pagina contatti');
+  assert.match(prompt, /Persona: Cambia il telefono nel footer/);
+  assert.match(prompt, /Claude: Fatto: ora è \+39 333 123 4567\./);
+  assert.match(prompt, /=== NUOVA RICHIESTA ===\nMettilo anche nella pagina contatti$/);
+  assert.equal(withContext([], 'Ciao'), 'Ciao');
+  assert.match(explain('No conversation found with session ID abc'), /non è più disponibile/);
 });

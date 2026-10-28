@@ -34,3 +34,6 @@ export const config = {
 
 export const workDir = (id) => path.join(config.dataDir, 'work', id);
 export const metaFile = (id) => path.join(config.dataDir, 'sessions', `${id}.json`);
+// cartella di Claude Code (cronologia delle conversazioni da riprendere): nel volume, non in HOME,
+// altrimenti a ogni deploy le conversazioni non si possono più riprendere
+export const claudeDir = () => path.join(config.dataDir, 'claude');
