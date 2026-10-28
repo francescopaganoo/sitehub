@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <!--
+    Template del blog per SiteHub (la pagina di un articolo).
+    Header, footer e <head> devono restare uguali alle altre pagine del sito: se li modifichi, aggiorna anche questo file.
+    Segnaposti: guida del sito, sezione Blog.
+  -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{seo_title}}</title>
+  <meta name="description" content="{{seo_description}}">
+  <meta name="robots" content="{{robots}}">
+  <link rel="canonical" href="{{canonical}}">
+
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="it_IT">
+  <meta property="og:site_name" content="Nome Azienda">
+  <meta property="og:title" content="{{seo_title}}">
+  <meta property="og:description" content="{{seo_description}}">
+  <meta property="og:url" content="{{canonical}}">
+  {{#og_image}}<meta property="og:image" content="{{og_image}}">{{/og_image}}
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="icon" href="/assets/img/favicon.svg">
+  <link rel="apple-touch-icon" href="/assets/img/favicon.svg">
+  <link rel="preload" href="/assets/fonts/montserrat.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/style.css?v=6aeb98db">
+  <script type="application/ld+json">{{{schema}}}</script>
+</head>
+<body>
+  <a class="skip-link" href="#contenuto">Vai al contenuto</a>
+
+  <div class="topbar">
+    <a href="mailto:info@dominio-cliente.it">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+      info@dominio-cliente.it
+    </a>
+    <a href="tel:+390000000000">
+      <svg class="icon icon--fill" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.2 15.2 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg>
+      +39 000 000 0000
+    </a>
+  </div>
+
+  <header class="site-header">
+    <nav class="navbar container" aria-label="Menu principale">
+      <a class="logo" href="/"><img src="/assets/img/logo.svg" alt="Nome Azienda" width="300" height="100"></a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="menu" aria-label="Apri il menu">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="menu" id="menu">
+        <li><a href="/">Home</a></li>
+        <li><a href="/#chi-siamo">Chi siamo</a></li>
+        <li><a href="/#servizi">Servizi</a></li>
+        <li><a href="/blog/">Blog</a></li>
+        <li><a href="/#contatti">Contatti</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="contenuto">
+    <article class="page articolo">
+      <p class="articolo__meta">
+        <a href="/blog/">Blog</a> · <time datetime="{{date_iso}}">{{date_human}}</time>{{#categories}} · <a href="{{url}}">{{name}}</a>{{/categories}}
+      </p>
+      <h1>{{title}}</h1>
+      {{#image}}<img class="articolo__immagine" src="{{image.url}}" srcset="{{image.srcset}}" sizes="(max-width: 860px) 100vw, 780px"
+                     alt="{{image.alt}}" width="{{image.width}}" height="{{image.height}}">{{/image}}
+      <div class="articolo__testo">
+        {{{content}}}
+      </div>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer__grid">
+      <div>
+        <h2>Mappa del sito</h2>
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="/#chi-siamo">Chi siamo</a></li>
+          <li><a href="/#servizi">Servizi</a></li>
+          <li><a href="/blog/">Blog</a></li>
+          <li><a href="/#contatti">Contattaci</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Contatti</h2>
+        <ul>
+          <li>Telefono: <a href="tel:+390000000000">+39 000 000 0000</a></li>
+          <li>Email: <a href="mailto:info@dominio-cliente.it">info@dominio-cliente.it</a></li>
+          <li>Via Esempio 1, 00000 Città (XX)</li>
+        </ul>
+      </div>
+      <div>
+        <h2>Informazioni</h2>
+        <ul>
+          <li><a href="/privacy-policy/">Privacy Policy</a></li>
+          <li><a href="/cookie-policy/">Cookie Policy</a></li>
+          <!-- solo se il sito usa servizi con consenso (Analytics, mappe…): <li><a href="#cookie-settings">Preferenze cookie</a></li> -->
+          <li>P.IVA 00000000000</li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+
+  <a class="whatsapp" href="https://wa.me/390000000000" target="_blank" rel="noopener" aria-label="Scrivici su WhatsApp">
+    <svg class="icon" viewBox="0 -448 448 512" aria-hidden="true"><path transform="scale(1,-1)" d="M380.9 350.9c41.8994 -42 67.0996 -97.7002 67.0996 -157c0 -122.4 -101.8 -222 -224.1 -222h-0.100586c-37.2002 0 -73.7002 9.2998 -106.1 27l-117.7 -30.9004l31.5 115c-19.4004 33.7002 -29.5996 71.9004 -29.5996 111c0 122.4 99.5996 222 222 222
+c59.2998 0 115.1 -23.0996 157 -65.0996zM223.9 9.2998c101.699 0 186.6 82.7998 186.6 184.601c0.0996094 49.2998 -21.2998 95.5996 -56.0996 130.5c-34.8008 34.8994 -81.1006 54.0996 -130.4 54.0996c-101.8 0 -184.6 -82.7998 -184.6 -184.5
+c0 -34.9004 9.69922 -68.7998 28.1992 -98.2002l4.40039 -7l-18.5996 -68.0996l69.7998 18.2998l6.7002 -4c28.2998 -16.7998 60.7998 -25.7002 94 -25.7002zM325.1 147.5c5.5 -2.7002 9.2002 -4.09961 10.5 -6.59961c1.40039 -2.30078 1.40039 -13.4004 -3.19922 -26.4004
+c-4.60059 -13 -26.7002 -24.7998 -37.4004 -26.4004c-17.5996 -2.59961 -31.4004 -1.2998 -66.5996 13.9004c-55.7002 24.0996 -92 80.0996 -94.8008 83.7998c-2.69922 3.7002 -22.5996 30.1006 -22.5996 57.4004s14.2998 40.7002 19.4004 46.2998
+c5.09961 5.5 11.0996 6.90039 14.7998 6.90039s7.39941 0 10.5996 -0.200195c3.40039 -0.200195 8 1.2998 12.5 -9.5c4.60059 -11.1006 15.7002 -38.4004 17.1006 -41.2002c1.39941 -2.7998 2.2998 -6 0.5 -9.7002c-10.6006 -21.2002 -22 -20.5 -16.3008 -30.2998
+c21.5 -36.9004 42.9004 -49.7002 75.5 -66c5.5 -2.7998 8.80078 -2.2998 12 1.40039c3.30078 3.7998 13.9004 16.1992 17.6006 21.7998c3.7002 5.59961 7.39941 4.7002 12.5 2.7998c5.09961 -1.7998 32.3994 -15.2002 37.8994 -18z"/></svg>
+  </a>
+
+  <!-- script SiteHub: incolla qui la riga della guida del sito (Codice da inserire nel sito) -->
+  <script src="/script.js?v=45d061aa" defer></script>
+</body>
+</html>
