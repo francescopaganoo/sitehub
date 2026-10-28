@@ -41,9 +41,10 @@ test('.git e file generati da SiteHub', () => {
   allow('Read', { file_path: '/data/work/abc/blog/index.html' }); // leggerli sì (per capire com'è il blog)
 });
 
-test('strumenti non previsti: terminale, rete, sotto-agenti', () => {
+test('terminale e agenti bloccati, consultazione web consentita', () => {
   deny('Bash', { command: 'ls' });
-  deny('WebFetch', { url: 'https://example.com' });
+  allow('WebFetch', { url: 'https://example.com' });
+  allow('WebSearch', { query: 'UX sito di riferimento' });
   deny('Agent', { prompt: 'x' });
 });
 
@@ -58,4 +59,15 @@ test('errori del SDK spiegati', async () => {
   assert.match(explain('Claude Code returned an error result: Invalid API key · Fix external API key'), /Credenziale Claude non valida o scaduta/);
   assert.match(explain('Your credit balance is too low'), /Credito Anthropic esaurito/);
   assert.match(explain('error_max_budget_usd'), /tetto di spesa/);
+});
+
+
+test('strumenti web e istruzioni coerenti', async () => {
+  const { TOOLS, rules } = await import('../src/agent.js');
+  assert.ok(TOOLS.includes('WebFetch'));
+  assert.ok(TOOLS.includes('WebSearch'));
+  const prompt = rules({ siteName: 'Test', domain: 'https://example.com' });
+  assert.ok(!prompt.includes('niente internet'));
+  assert.match(prompt, /aprilo con WebFetch/);
+  assert.match(prompt, /non è un browser visuale/);
 });
