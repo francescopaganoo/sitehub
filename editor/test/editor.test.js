@@ -164,6 +164,9 @@ test('pubblicazione su un altro ramo, solo se richiesto', async () => {
   const bare = path.join(remotes, 'Plan-Studios', 'sito-prova.git');
   assert.match(sh(bare, 'show', 'prova-servizi:index.html'), /Antennistica/);
   assert.doesNotMatch(sh(bare, 'show', 'main:index.html'), /Antennistica/);
+  // la sessione torna a main: la proposta non finisce online con la prossima pubblicazione
+  assert.deepEqual((await api('GET', `/api/sessions/${session.id}/changes`)).body.files, []);
+  assert.doesNotMatch(fs.readFileSync(path.join(tmp, 'data', 'work', session.id, 'index.html'), 'utf8'), /Antennistica/);
 });
 
 test('caricamento di immagini: solo in assets/, nome ripulito, mai sopra un file esistente', async () => {
@@ -185,6 +188,72 @@ test('annulla le modifiche non pubblicate', async () => {
   assert.ok((await api('GET', `/api/sessions/${session.id}/changes`)).body.files.length > 0);
   await api('POST', `/api/sessions/${session.id}/discard`);
   assert.deepEqual((await api('GET', `/api/sessions/${session.id}/changes`)).body.files, []);
+});
+
+const bareProva = () => path.join(remotes, 'Plan-Studios', 'sito-prova.git');
+const historyOf = async () => (await api('GET', '/api/history?repo=Plan-Studios/sito-prova')).body.commits;
+const publishAs = (message) => api('POST', `/api/sessions/${session.id}/publish`, { message, user: { name: 'Mario Rossi', email: 'mario@planstudios.it' } });
+
+test('storico: pubblicazioni dall\'editor riconosciute, articoli del blog a parte', async () => {
+  // un articolo pubblicato da SiteHub direttamente sul repo
+  const other = path.join(tmp, 'clone-sitehub');
+  sh(tmp, 'clone', '-q', bareProva(), other);
+  fs.mkdirSync(path.join(other, 'blog', 'primo'), { recursive: true });
+  fs.writeFileSync(path.join(other, 'blog', 'primo', 'index.html'), '<h1>Primo</h1>');
+  sh(other, 'add', '-A');
+  sh(other, '-c', 'user.name=SiteHub', '-c', 'user.email=s@h', 'commit', '-qm', 'Blog: primo');
+  sh(other, 'push', '-q', 'origin', 'main');
+
+  const [blog, tel, first] = await historyOf();
+  assert.equal(blog.source, 'blog');
+  assert.equal(blog.revertable, false);
+  assert.equal(tel.subject, 'Nuovo numero di telefono');
+  assert.equal(tel.source, 'editor');
+  assert.equal(tel.session, session.id);
+  assert.equal(tel.author, 'Mario Rossi');
+  assert.ok(tel.revertable);
+  assert.ok(tel.files.includes('index.html'));
+  assert.equal(first.source, 'altro');
+  assert.equal(first.revertable, false, 'la prima versione non si annulla');
+  assert.equal((await api('GET', '/api/history?repo=../fuori')).status, 422);
+});
+
+test('annulla una pubblicazione: si prepara nella sessione, va online solo pubblicando', async () => {
+  const tel = (await historyOf()).find((c) => c.subject === 'Nuovo numero di telefono');
+  const r = await api('POST', `/api/sessions/${session.id}/revert`, { sha: tel.sha, subject: tel.subject, user: { name: 'Mario Rossi' } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.ok(r.body.files.some((f) => f.path === 'index.html'));
+  assert.match((await api('GET', `/api/sessions/${session.id}/diff`)).body.diff, /^-.*\+39 333 123 4567/m);
+  assert.match(sh(bareProva(), 'show', 'main:index.html'), /\+39 333 123 4567/, 'online non cambia prima di pubblicare');
+  const s = (await api('GET', `/api/sessions/${session.id}`)).body.session;
+  assert.equal(s.revertOf.sha, tel.sha);
+  assert.match(s.history.at(-1).text, /annullamento/);
+  assert.equal((await api('POST', `/api/sessions/${session.id}/revert`, { sha: tel.sha })).status, 409, 'con modifiche in corso');
+
+  assert.equal((await api('POST', `/api/sessions/${session.id}/publish`, { user: { name: 'Mario Rossi', email: 'mario@planstudios.it' } })).status, 200);
+  assert.equal(sh(bareProva(), 'log', '-1', '--format=%s', 'main'), 'Annulla «Nuovo numero di telefono»');
+  const index = sh(bareProva(), 'show', 'main:index.html');
+  assert.match(index, /\+39 000 000 0000/);
+  assert.doesNotMatch(index, /Antennistica/);
+  assert.equal(sh(bareProva(), 'show', 'main:blog/primo/index.html'), '<h1>Primo</h1>', 'l\'articolo pubblicato dopo resta');
+  assert.equal((await api('GET', `/api/sessions/${session.id}`)).body.session.revertOf, undefined);
+});
+
+test('annullamento non possibile: stesse righe cambiate dopo, articoli del blog, sha non valido', async () => {
+  await chat(session.id, 'sostituisci «Chi siamo» con «La nostra storia»');
+  await publishAs('Titolo A');
+  await chat(session.id, 'sostituisci «La nostra storia» con «Storia»');
+  await publishAs('Titolo B');
+  const commits = await historyOf();
+  const r = await api('POST', `/api/sessions/${session.id}/revert`, { sha: commits.find((c) => c.subject === 'Titolo A').sha });
+  assert.equal(r.status, 409);
+  assert.match(r.body.message, /Chiedi a Claude/);
+  assert.deepEqual((await api('GET', `/api/sessions/${session.id}/changes`)).body.files, [], 'la cartella torna com\'era');
+  const blog = await api('POST', `/api/sessions/${session.id}/revert`, { sha: commits.find((c) => c.source === 'blog').sha });
+  assert.equal(blog.status, 422);
+  assert.match(blog.body.message, /blog/);
+  assert.equal((await api('POST', `/api/sessions/${session.id}/revert`, { sha: 'nonvalido' })).status, 422);
+  assert.equal((await api('POST', `/api/sessions/${session.id}/revert`, { sha: '0'.repeat(40) })).status, 422);
 });
 
 test('sito nuovo: repo creato, starter come primo commit con lo script di SiteHub', async () => {

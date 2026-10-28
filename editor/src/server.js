@@ -6,6 +6,7 @@
 //   GET    /api/sessions?slug=…&repo=org/nome         sessioni (per sito)
 //   POST   /api/sessions                              modifica di un sito: {slug, repo, branch, siteName, domain, guideUrl, user}
 //   POST   /api/sites                                 sito nuovo dallo starter: {slug, repoName, description, siteName, domain, guideUrl, sitehubSnippet, user}
+//   GET    /api/history?repo=org/nome&branch=main     storico delle pubblicazioni del sito
 //   GET    /api/sessions/:id
 //   POST   /api/sessions/:id/messages                 chat: {text, apiKey, model, effort, user} → eventi (text/event-stream)
 //   POST   /api/sessions/:id/stop                     interrompe Claude
@@ -13,6 +14,7 @@
 //   GET    /api/sessions/:id/diff                     differenze (testo)
 //   POST   /api/sessions/:id/publish                  {message, branch, user} → commit e push
 //   POST   /api/sessions/:id/discard                  annulla le modifiche non pubblicate
+//   POST   /api/sessions/:id/revert                   {sha, subject, user} → prepara l'annullamento di una pubblicazione
 //   PUT    /api/sessions/:id/files?path=assets/…      carica un'immagine (corpo della richiesta = file)
 //   DELETE /api/sessions/:id                          chiude la sessione
 //   GET    /api/starter.zip                           starter da scaricare
@@ -132,6 +134,9 @@ async function route(req, res) {
   if (p === '/api/sessions' && req.method === 'POST') return json(res, 201, { session: sessions.view(await sessions.create(await readJson(req))) });
   if (p === '/api/sites' && req.method === 'POST') return json(res, 201, { session: sessions.view(await sessions.createSite(await readJson(req))) });
   if (p === '/api/starter.zip' && req.method === 'GET') return starterZip(res);
+  if (p === '/api/history' && req.method === 'GET') {
+    return json(res, 200, { commits: await sessions.history({ repo: url.searchParams.get('repo'), branch: url.searchParams.get('branch') || undefined, limit: url.searchParams.get('limit') }) });
+  }
   if (p === '/api/info' && req.method === 'GET') return json(res, 200, { githubOrg: config.githubOrg });
 
   if ((match = m(/^\/api\/sessions\/([^/]+)(\/[a-z]+)?$/))) {
@@ -145,6 +150,7 @@ async function route(req, res) {
       case 'GET /diff': return json(res, 200, { diff: await sessions.diff(id) });
       case 'POST /publish': return json(res, 200, await sessions.publish(id, await readJson(req)));
       case 'POST /discard': await sessions.discard(id); return json(res, 200, { files: [] });
+      case 'POST /revert': return json(res, 200, await sessions.revert(id, await readJson(req)));
       case 'PUT /files': return json(res, 201, await sessions.upload(id, url.searchParams.get('path'), await readRaw(req)));
       case 'DELETE ': await sessions.remove(id); return json(res, 200, { deleted: id });
     }

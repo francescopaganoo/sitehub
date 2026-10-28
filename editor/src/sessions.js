@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import { config, workDir, metaFile } from './config.js';
 import * as git from './git.js';
-import { runMessage } from './agent.js';
+import { runMessage, isSiteHubFile } from './agent.js';
 import { stampVersions, prepareFromStarter } from './site.js';
 
 export class SessionError extends Error {
@@ -17,6 +17,9 @@ export class SessionError extends Error {
 }
 
 const running = new Map(); // id sessione → AbortController del messaggio in corso
+
+// proprietario/nome, senza parti che iniziano con un punto (niente «..»: il nome finisce anche in percorsi su disco)
+const REPO_RE = /^[\w-][\w.-]*\/[\w-][\w.-]*$/;
 
 const newId = () => crypto.randomBytes(8).toString('hex');
 
@@ -67,7 +70,7 @@ function base({ kind, slug, repo, branch, siteName, domain, guideUrl, user }) {
 
 /** Modifica di un sito esistente: si scarica il repo. */
 export async function create({ slug, repo, branch, siteName, domain, guideUrl, user }) {
-  if (!/^[\w.-]+\/[\w.-]+$/.test(repo || '')) throw new SessionError(422, 'Repo non valido (proprietario/nome)');
+  if (!REPO_RE.test(repo || '')) throw new SessionError(422, 'Repo non valido (proprietario/nome)');
   const meta = base({ kind: 'edit', slug, repo, branch, siteName, domain, guideUrl, user });
   const root = workDir(meta.id);
   await fs.mkdir(path.dirname(root), { recursive: true });
@@ -166,11 +169,14 @@ export async function publish(id, { message, branch, user }) {
   const files = await git.changes(root);
   let sha;
   try {
-    sha = await git.publish(root, { message: message || `Modifiche dal gestionale (${user?.name || 'editor'})`, author: author(user), branch });
+    // il riferimento alla sessione serve allo storico per riconoscere le pubblicazioni fatte da qui
+    const text = message || meta.revertOf?.message || `Modifiche dal gestionale (${user?.name || 'editor'})`;
+    sha = await git.publish(root, { message: `${text}\n\nEditor-Session: ${id}`, author: author(user), branch });
   } catch (e) {
     throw new SessionError(502, `Pubblicazione non riuscita: ${e.message}`);
   }
   meta.published.push({ sha, branch: branch || meta.branch, at: new Date().toISOString(), by: user?.name || null, files: files.length });
+  delete meta.revertOf;
   await save(meta);
   return { sha, branch: branch || meta.branch, files };
 }
@@ -205,6 +211,63 @@ export async function discard(id) {
   await get(id);
   if (running.has(id)) throw new SessionError(409, 'Claude sta lavorando: interrompilo prima');
   await git.discardChanges(workDir(id));
+  const meta = await get(id);
+  if (meta.revertOf) {
+    delete meta.revertOf;
+    await save(meta);
+  }
+}
+
+/**
+ * Storico delle pubblicazioni di un sito. `source`: editor (pubblicato da qui), blog (articoli, da SiteHub),
+ * altro (push fatti fuori dal gestionale). Il blog non si annulla da qui: lo gestisce SiteHub.
+ */
+export async function history({ repo, branch = 'main', limit = 30 }) {
+  if (!REPO_RE.test(repo || '')) throw new SessionError(422, 'Repo non valido (proprietario/nome)');
+  if (!/^[\w./-]{1,80}$/.test(branch) || branch.includes('..')) throw new SessionError(422, 'Ramo non valido');
+  let commits;
+  try {
+    commits = await git.history(repo, branch, path.join(config.dataDir, 'mirrors', `${repo}.git`), Math.min(Number(limit) || 30, 100));
+  } catch (e) {
+    throw new SessionError(502, `Storico non disponibile: ${e.message}`);
+  }
+  return commits.map((c) => {
+    const source = c.session ? 'editor' : c.files.length && c.files.every(isSiteHubFile) ? 'blog' : 'altro';
+    return { ...c, source, revertable: source !== 'blog' && c.parents.length === 1 };
+  });
+}
+
+/**
+ * Prepara l'annullamento di una pubblicazione nella sessione: le modifiche si vedono nell'anteprima e nelle
+ * differenze, e vanno online solo con Pubblica.
+ */
+export async function revert(id, { sha, subject, user }) {
+  const meta = await get(id);
+  if (!/^[0-9a-f]{7,40}$/.test(sha || '')) throw new SessionError(422, 'Pubblicazione non valida');
+  if (running.has(id)) throw new SessionError(409, 'Claude sta lavorando: aspetta che finisca');
+  const root = workDir(id);
+  if ((await git.changes(root)).length) throw new SessionError(409, 'Ci sono modifiche non pubblicate in questa sessione: pubblicale o annullale prima');
+  await git.pull(root).catch(() => {});
+  const files = (await git.history(meta.repo, meta.branch, path.join(config.dataDir, 'mirrors', `${meta.repo}.git`), 100)
+    .catch(() => [])).find((c) => c.sha.startsWith(sha))?.files || [];
+  if (files.length && files.every(isSiteHubFile)) throw new SessionError(422, 'Gli articoli del blog si gestiscono dal gestionale, non da qui');
+  try {
+    await git.revert(root, sha);
+  } catch (e) {
+    if (e instanceof git.ConflictError) {
+      throw new SessionError(409, 'Non si può annullare in automatico: nel frattempo sono cambiate le stesse parti del sito. '
+        + 'Chiedi a Claude in chat di rimetterle com\'erano (es. «rimetti il footer com\'era prima»).');
+    }
+    throw new SessionError(422, e.message);
+  }
+  const title = subject ? `«${String(subject).slice(0, 120)}»` : sha.slice(0, 7);
+  meta.revertOf = { sha, subject: subject || null, message: `Annulla ${title}` };
+  meta.history.push({
+    role: 'assistant', at: new Date().toISOString(), by: user?.name || null, events: [],
+    text: `Ho preparato l'annullamento della pubblicazione ${title}. Controlla l'anteprima e le differenze, poi pubblica.`,
+  });
+  await save(meta);
+  return { files: await git.changes(root) };
 }
 
 /** Chiude la sessione: cartella di lavoro e dati eliminati. */

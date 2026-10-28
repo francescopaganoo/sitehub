@@ -9,8 +9,12 @@ import { config } from './config.js';
 export const TOOLS = ['Read', 'Write', 'Edit', 'Glob', 'Grep'];
 const BLOCKED_TOOLS = ['Bash', 'WebFetch', 'WebSearch', 'Agent', 'Task', 'NotebookEdit', 'Workflow'];
 
+/** File generati da SiteHub per il blog. */
+const SITEHUB_FILES = [/^blog(\/|$)/, /^sitemap-blog\.xml$/, /^_sitehub\/content(\/|$)/, /^assets\/blog(\/|$)/];
+export const isSiteHubFile = (rel) => SITEHUB_FILES.some((re) => re.test(rel));
+
 /** File generati da SiteHub (blog) o interni a git: Claude non li modifica. */
-const PROTECTED = [/^\.git(\/|$)/, /^blog(\/|$)/, /^sitemap-blog\.xml$/, /^_sitehub\/content(\/|$)/, /^assets\/blog(\/|$)/];
+const PROTECTED = [/^\.git(\/|$)/, ...SITEHUB_FILES];
 
 /** Percorso relativo alla cartella del sito, null se è fuori. */
 export function insideSite(root, filePath) {
