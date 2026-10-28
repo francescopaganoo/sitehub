@@ -14,7 +14,7 @@ final class Layout
 {
     /** Blog di un sito fatto a mano: tutto sotto /blog/, così un articolo non può sovrascrivere una pagina del sito. */
     public const STATIC_BLOG = ['index_path' => '/blog/', 'index_title' => 'Blog', 'per_page' => 9,
-        'permalink' => '/blog/{slug}/', 'category_path' => '/blog/categoria/{slug}/'];
+        'permalink' => '/blog/{slug}/', 'category_path' => '/blog/categoria/{slug}/', 'image_ratio' => '16:10'];
 
     private function __construct(
         public readonly string $name,

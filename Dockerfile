@@ -11,6 +11,13 @@
 
 FROM php:8.4-apache
 
+# immagini del blog: GD con JPEG e WebP, EXIF per raddrizzare le foto del telefono
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libjpeg62-turbo-dev libpng-dev libwebp-dev \
+ && docker-php-ext-configure gd --with-jpeg --with-webp \
+ && docker-php-ext-install -j"$(nproc)" gd exif \
+ && rm -rf /var/lib/apt/lists/*
+
 RUN a2enmod headers \
  && printf '%s\n' \
     '<VirtualHost *:80>' \
@@ -25,7 +32,8 @@ RUN a2enmod headers \
     '  ServerSignature Off' \
     '</VirtualHost>' > /etc/apache2/sites-available/000-default.conf \
  && echo 'ServerTokens Prod' >> /etc/apache2/apache2.conf \
- && printf '%s\n' 'expose_php = Off' 'display_errors = Off' 'log_errors = On' > /usr/local/etc/php/conf.d/panel.ini
+ && printf '%s\n' 'expose_php = Off' 'display_errors = Off' 'log_errors = On' \
+    'upload_max_filesize = 16M' 'post_max_size = 20M' 'memory_limit = 512M' > /usr/local/etc/php/conf.d/panel.ini
 
 WORKDIR /app
 COPY lib/ lib/

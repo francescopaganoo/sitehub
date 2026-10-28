@@ -22,6 +22,7 @@ use Panel\Http\Request;
 use Panel\Http\Response;
 use Panel\Http\Router;
 use Panel\Mail\SmtpAccounts;
+use Panel\Media;
 use Panel\Publish\Publisher;
 use Panel\Store;
 
@@ -31,18 +32,19 @@ try {
     $db = panel_db();
     $store = new Store($db);
     $forms = new FormService($db);
+    $media = new Media($db, Media::root());
 
     if ($req->path === '/guida.md' && in_array($req->method, ['GET', 'HEAD'], true)) {
         $response = Embed::guide(Guide::generic(), 'guida-siti.md');
     } elseif (preg_match('~^/e/' . Embed::VERSION . '(/.*)$~', $req->path, $m)) {
         // endpoint pubblici usati dai siti: niente token, li identifica la chiave pk_…
-        $response = (new Embed($store, $forms))->handle($req, $m[1]);
+        $response = (new Embed($store, $forms, $media))->handle($req, $m[1]);
     } elseif (preg_match('~^/api/v1(/.*)?$~', $req->path, $m)) {
         $principal = (new Auth($db))->authenticate($req);
-        $publisher = new Publisher($store, $db);
+        $publisher = new Publisher($store, $db, $media);
 
         $router = new Router();
-        foreach ([Api\SitesApi::class, Api\PostsApi::class, Api\CategoriesApi::class] as $api) {
+        foreach ([Api\SitesApi::class, Api\PostsApi::class, Api\CategoriesApi::class, Api\MediaApi::class] as $api) {
             (new $api($store, $publisher, $principal))->routes($router);
         }
         $smtpAccounts = new SmtpAccounts($db);

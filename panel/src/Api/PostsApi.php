@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Panel\Api;
 
+use Panel\Embed;
 use Panel\Http\ApiError;
 use Panel\Http\Request;
 use Panel\Http\Response;
@@ -153,8 +154,19 @@ final class PostsApi extends Api
             $img = $in['image'];
             if ($img === null) {
                 $post['image'] = null;
+            } elseif (is_array($img) && !empty($img['media_id'])) {
+                // immagine caricata in SiteHub: indirizzo e dimensioni li conosce il pannello
+                try {
+                    $m = $this->publisher->media->get($site['id'], (string) $img['media_id']);
+                    $w = max($m['widths']);
+                    $post['image'] = ['media_id' => $m['id'], 'url' => Embed::mediaUrl($site['public_key'], $m['id'], $w),
+                        'alt' => trim(strip_tags((string) ($img['alt'] ?? ''))) ?: $m['alt'],
+                        'width' => $w, 'height' => (int) round($m['height'] * $w / $m['width'])];
+                } catch (ApiError) {
+                    $errors['image'] = 'Immagine inesistente (media_id)';
+                }
             } elseif (!is_array($img) || !preg_match('~^(/[^\s]*|https://[^\s]+)$~', (string) ($img['url'] ?? ''))) {
-                $errors['image'] = 'Formato: {"url": "/media/…" o "https://…", "alt": "…"} oppure null';
+                $errors['image'] = 'Formato: {"media_id": "…", "alt": "…"}, {"url": "/media/…" o "https://…", "alt": "…"} oppure null';
             } else {
                 $post['image'] = ['url' => $img['url'], 'alt' => trim((string) ($img['alt'] ?? '')),
                     'width' => isset($img['width']) ? (int) $img['width'] : null, 'height' => isset($img['height']) ? (int) $img['height'] : null];

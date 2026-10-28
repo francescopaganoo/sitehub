@@ -5,6 +5,8 @@ namespace Panel\Publish;
 
 use BlogRenderer;
 use Panel\Db;
+use Panel\Embed;
+use Panel\Media;
 use Panel\Http\ApiError;
 use Panel\Store;
 
@@ -24,7 +26,7 @@ final class Publisher
     private const POST_FIELDS = ['id', 'wp_id', 'slug', 'status', 'title', 'excerpt', 'content', 'date', 'modified',
         'categories', 'tags', 'image', 'author', 'seo', 'head_extra'];
 
-    public function __construct(private Store $store, private Db $db)
+    public function __construct(private Store $store, private Db $db, public readonly Media $media)
     {
     }
 
@@ -56,9 +58,25 @@ final class Publisher
         $categories = $this->store->categories($site['id']);
         $layout = Layout::of($site);
 
+        // immagini: negli articoli pubblicati diventano file del sito, scritti nello stesso commit
+        $images = [];
+        $public = $this->withMedia($site, $posts, function (array $m, int $w) use (&$images): string {
+            $path = sprintf('/assets/blog/%s/%s-%s-%d.webp', date('Y/m', strtotime($m['created_at'])), $m['name'], substr($m['id'], 0, 6), $w);
+            $images[$path] = [$m['id'], $w];
+            return $path;
+        });
+
         $files = [];
-        foreach ($this->renderer($site)->render($posts, $categories)['files'] as $path => $html) {
+        foreach ($this->renderer($site)->render($public, $categories)['files'] as $path => $html) {
             $files[$layout->pages . $path] = $html;
+        }
+        $now = time();
+        $visible = array_filter($public, fn($p) => $p['status'] === 'published' && strtotime($p['date']) <= $now);
+        $used = implode("\n", array_map(fn($p) => $p['content'] . json_encode($p['image'], JSON_UNESCAPED_SLASHES), $visible));
+        foreach ($images as $path => [$id, $w]) {
+            if (str_contains($used, $path) && ($file = $this->media->file($site['id'], $id, (string) $w))) {
+                $files[$layout->pages . ltrim($path, '/')] = (string) file_get_contents($file);
+            }
         }
         foreach ($posts as $post) {
             $files["{$layout->data}content/posts/{$post['slug']}.json"] = json_encode(self::exportPost($post), self::JSON) . "\n";
@@ -112,7 +130,71 @@ final class Publisher
 
     public function preview(array $site, array $post): string
     {
+        // anteprima: immagini servite da SiteHub, come nell'editor
+        [$post] = $this->withMedia($site, [$post], fn(array $m, int $w) => Embed::mediaUrl($site['public_key'], $m['id'], $w));
         return $this->renderer($site)->renderPost($post, $this->store->categories($site['id']));
+    }
+
+    /** Larghezza occupata dall'immagine nel testo, secondo la classe scelta nell'editor. */
+    private const SIZES = [
+        'img--piccola' => '(max-width: 600px) 50vw, 280px',
+        'img--media'   => '(max-width: 600px) 100vw, 450px',
+        ''             => '(max-width: 900px) 100vw, 900px',
+    ];
+
+    /**
+     * Immagini caricate in SiteHub (data-media nel testo, image.media_id per quella in evidenza):
+     * indirizzi da $url(immagine, larghezza), con srcset per tutte le larghezze disponibili.
+     */
+    private function withMedia(array $site, array $posts, callable $url): array
+    {
+        $cache = [];
+        $find = function (string $id) use ($site, &$cache): ?array {
+            if (!array_key_exists($id, $cache)) {
+                try {
+                    $cache[$id] = $this->media->get($site['id'], $id);
+                } catch (ApiError) {
+                    $cache[$id] = null; // immagine eliminata: resta l'indirizzo salvato
+                }
+            }
+            return $cache[$id];
+        };
+        $srcset = fn(array $m) => implode(', ', array_map(fn($w) => $url($m, $w) . " {$w}w", $m['widths']));
+
+        foreach ($posts as &$post) {
+            if (!empty($post['image']['media_id']) && ($m = $find($post['image']['media_id']))) {
+                $w = max($m['widths']);
+                $post['image'] = ['url' => $url($m, $w), 'srcset' => $srcset($m), 'width' => $w,
+                    'height' => (int) round($m['height'] * $w / $m['width'])] + $post['image'];
+            }
+            if (!str_contains((string) $post['content'], 'data-media=')) {
+                continue; // testo senza immagini caricate: resta identico, byte per byte
+            }
+            $doc = \Dom\HTMLDocument::createFromString('<!doctype html><body>' . $post['content'], LIBXML_NOERROR, 'UTF-8');
+            foreach ($doc->querySelectorAll('img[data-media]') as $img) {
+                if (!$m = $find($img->getAttribute('data-media'))) {
+                    continue;
+                }
+                $w = max($m['widths']);
+                $classes = ' ' . $img->getAttribute('class') . ' ' . ($img->parentElement?->getAttribute('class') ?? '') . ' ';
+                $size = '';
+                foreach (array_keys(self::SIZES) as $c) {
+                    if ($c !== '' && str_contains($classes, " $c ")) {
+                        $size = $c;
+                    }
+                }
+                $img->setAttribute('src', $url($m, $w));
+                $img->setAttribute('srcset', $srcset($m));
+                $img->setAttribute('sizes', self::SIZES[$size]);
+                $img->setAttribute('width', (string) $w);
+                $img->setAttribute('height', (string) round($m['height'] * $w / $m['width']));
+                $img->setAttribute('loading', 'lazy');
+                $img->setAttribute('decoding', 'async');
+                $img->removeAttribute('data-media');
+            }
+            $post['content'] = $doc->body->innerHTML;
+        }
+        return $posts;
     }
 
     /**

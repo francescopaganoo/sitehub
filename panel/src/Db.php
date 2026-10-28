@@ -141,6 +141,23 @@ final class Db
         );
         ALTER TABLE mail_settings ADD COLUMN smtp_account_id INTEGER REFERENCES smtp_accounts(id);
         SQL,
+        // immagini del blog (file in data/media/{sito}/{id}/, vedi Media)
+        <<<SQL
+        CREATE TABLE media (
+            id          TEXT PRIMARY KEY,           -- 12 caratteri esadecimali
+            site_id     INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+            name        TEXT NOT NULL,              -- dal nome del file: entra nel nome pubblicato
+            alt         TEXT NOT NULL DEFAULT '',
+            width       INTEGER NOT NULL,
+            height      INTEGER NOT NULL,
+            bytes       INTEGER NOT NULL,
+            sha1        TEXT,                       -- del file caricato: la stessa foto non si duplica
+            parent_id   TEXT,                       -- ritaglio di un'altra immagine
+            crop        TEXT,                       -- JSON {x, y, width, height} sull'originale
+            created_at  TEXT NOT NULL
+        );
+        CREATE INDEX media_site ON media(site_id, created_at DESC);
+        SQL,
     ];
 
     public function __construct(string $path)

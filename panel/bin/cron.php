@@ -17,7 +17,7 @@ if ($retried) {
     echo date('c') . " form: $retried invii ritentati\n";
 }
 
-$publisher = new Panel\Publish\Publisher($store, $db);
+$publisher = new Panel\Publish\Publisher($store, $db, new Panel\Media($db, Panel\Media::root()));
 foreach ($store->sites() as $site) {
     if (empty($site['templates']) || empty($site['modules']['blog'])) {
         continue;

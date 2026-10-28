@@ -249,7 +249,7 @@ Crea un articolo. L'unico campo obbligatorio è `title`.
 | `excerpt` | testo | se vuoto si usano le prime ~30 parole |
 | `categories` | string[] | slug di categorie esistenti |
 | `tags` | string[] | |
-| `image` | object \| null | `{"url": "/…" o "https://…", "alt": "…", "width": 1200, "height": 800}` |
+| `image` | object \| null | immagine caricata: `{"media_id": "…", "alt": "…"}` (consigliato); oppure un indirizzo `{"url": "/…" o "https://…", "alt": "…"}` |
 | `author` | string | |
 | `seo` | object | `{"title": "…", "description": "…", "noindex": false}`; se vuoti si usano titolo ed estratto |
 
@@ -263,6 +263,45 @@ Elimina l'articolo e rimuove la sua pagina dal sito.
 
 ### `GET /sites/{site}/posts/{id}/preview`
 Restituisce l'**HTML** della pagina dell'articolo con la grafica del sito, anche se è una bozza. Non pubblica nulla.
+
+---
+
+## Immagini
+
+Le immagini del blog si caricano in SiteHub, che le raddrizza, toglie i metadati (GPS compreso) e le salva in WebP
+in più larghezze (480, 960, 1600 px, solo quelle più piccole dell'originale). Finché un articolo è in bozza si vedono da SiteHub;
+alla pubblicazione vanno nel repo del sito (`/assets/blog/AAAA/MM/nome-id-larghezza.webp`) nello stesso commit dell'articolo,
+con `srcset` e `sizes` per i telefoni.
+
+### `GET /sites/{site}/media?q=`
+Libreria del sito, dalla più recente. Ogni immagine:
+
+```json
+{ "id": "a8ea6d5136e7", "name": "gomme", "alt": "Pneumatici in officina", "width": 1600, "height": 1000, "widths": [480, 960, 1600],
+  "bytes": 72830, "parent_id": "8d5206553d09", "crop": { "x": 200, "y": 100, "width": 1600, "height": 1000 },
+  "url": "https://hub…/e/v1/pk_…/media/a8ea6d5136e7/960.webp", "thumb": "…/480.webp", "original": "…/master.webp",
+  "urls": { "480": "…", "960": "…", "1600": "…" }, "used_in": [{ "id": "…", "title": "…", "status": "published" }] }
+```
+
+### `POST /sites/{site}/media`
+`multipart/form-data` con `file` (JPG, PNG, WebP o GIF, massimo 15 MB) e `alt` facoltativo. La stessa foto caricata due volte non si duplica.
+Le foto HEIC dell'iPhone sono rifiutate con un messaggio che spiega come esportarle in JPG.
+
+### `PATCH /sites/{site}/media/{id}`
+`{"alt": "…"}`: testo alternativo predefinito dell'immagine.
+
+### `POST /sites/{site}/media/{id}/crop`
+`{"x", "y", "width", "height"}` in pixel dell'originale (`original`, fino a 2400 px; se `id` è già un ritaglio, quello da cui è stato
+ritagliato). Crea una nuova immagine (`parent_id`): l'originale resta per altri ritagli.
+
+### `DELETE /sites/{site}/media/{id}`
+`409 media_in_use` se è usata in un articolo.
+
+### Nel testo degli articoli
+`<img src="(url di SiteHub)" data-media="id" alt="…">`, con le classi `img--piccola` / `img--media` (dimensione) e `img--sinistra` / `img--destra`
+(allineamento), dentro `<figure>` con `<figcaption>` se c'è una didascalia. Nei template, l'immagine in evidenza ha anche `{{image.srcset}}`.
+
+Nel sito, `blog.image_ratio` (es. `"16:10"`, `PATCH /sites/{site}` con `{"blog": {"image_ratio": "16:10"}}`) è il formato proposto per ritagliare l'immagine in evidenza.
 
 ---
 

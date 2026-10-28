@@ -539,7 +539,7 @@ Come funzionano i segnaposti:
 | `{{excerpt}}` | riassunto |
 | `{{author}}` | autore (può essere vuoto) |
 | `{{site_name}}` | nome del sito |
-| `{{#image}}…{{/image}}` con `{{image.url}}`, `{{image.alt}}`, `{{image.width}}`, `{{image.height}}` | immagine in evidenza, se c'è |
+| `{{#image}}…{{/image}}` con `{{image.url}}`, `{{image.srcset}}`, `{{image.alt}}`, `{{image.width}}`, `{{image.height}}` | immagine in evidenza, se c'è; `srcset` contiene le versioni più piccole (480, 960, 1600 px) per i telefoni |
 | `{{#categories}}…{{/categories}}` con `{{name}}`, `{{url}}` | categorie dell'articolo |
 | `{{url}}`, `{{slug}}` | indirizzo relativo (`/blog/titolo/`) e slug |
 
@@ -590,7 +590,8 @@ Metti quindi il link all'articolo **fuori** dal blocco dell'immagine e usa sempr
         {{#categories}} · <a href="{{url}}">{{name}}</a>{{/categories}}
       </p>
       <h1>{{title}}</h1>
-      {{#image}}<img class="articolo__immagine" src="{{image.url}}" alt="{{image.alt}}" width="{{image.width}}" height="{{image.height}}">{{/image}}
+      {{#image}}<img class="articolo__immagine" src="{{image.url}}" srcset="{{image.srcset}}" sizes="(max-width: 900px) 100vw, 900px"
+                     alt="{{image.alt}}" width="{{image.width}}" height="{{image.height}}">{{/image}}
       <div class="articolo__testo">{{{content}}}</div>
     </article>
   </main>
@@ -614,7 +615,8 @@ Metti quindi il link all'articolo **fuori** dal blocco dell'immagine e usa sempr
         {{#posts}}
         <article class="blog__card">
           <a href="{{url}}">
-            {{#image}}<img src="{{image.url}}" alt="{{image.alt}}" loading="lazy">{{/image}}
+            {{#image}}<img src="{{image.url}}" srcset="{{image.srcset}}" sizes="(max-width: 700px) 100vw, 400px"
+                           alt="{{image.alt}}" width="{{image.width}}" height="{{image.height}}" loading="lazy">{{/image}}
             <h2>{{title}}</h2>
           </a>
           <p class="blog__data"><time datetime="{{date_iso}}">{{date_human}}</time></p>
@@ -632,6 +634,26 @@ Metti quindi il link all'articolo **fuori** dal blocco dell'immagine e usa sempr
 Stile: aggiungi in `style.css` le classi dei template (`.articolo`, `.blog__card`…) e lo stile del testo degli articoli
 (`.articolo__testo h2, p, ul, img, blockquote, a`), che arriva dall'editor del gestionale come HTML semplice.
 La paginazione ha queste classi: `.pagination`, `.page-numbers`, `.current`, `.prev`, `.next`.
+
+Le immagini nel testo arrivano dall'editor con queste classi (sull'`<img>` o sul `<figure>` che la contiene, con la didascalia in `<figcaption>`):
+`img--piccola` e `img--media` (dimensione; senza classe = tutta la larghezza), `img--sinistra` e `img--destra` (testo intorno; senza classe = centrata).
+Copia questo blocco in `style.css` (cambia solo colori e spaziature se serve):
+
+```css
+.articolo__testo figure { margin: 1.5rem 0; }
+.articolo__testo img { display: block; max-width: 100%; height: auto; margin: 1.5rem auto; }
+.articolo__testo figure img { margin: 0 auto; }
+.articolo__testo figcaption { margin-top: .5rem; font-size: .9em; color: #666; text-align: center; }
+.articolo__testo .img--media { width: 50%; }
+.articolo__testo .img--piccola { width: 30%; }
+.articolo__testo figure.img--media img, .articolo__testo figure.img--piccola img { width: 100%; }
+.articolo__testo .img--sinistra { float: left; margin: .3rem 1.5rem 1rem 0; }
+.articolo__testo .img--destra { float: right; margin: .3rem 0 1rem 1.5rem; }
+.articolo__testo::after { content: ""; display: block; clear: both; }
+@media (max-width: 600px) {
+  .articolo__testo .img--media, .articolo__testo .img--sinistra, .articolo__testo .img--destra { float: none; width: 100%; margin: 1.5rem 0; }
+}
+```
 
 Regole:
 - I template devono stare **esattamente** in `_sitehub/templates/articolo.html` e `_sitehub/templates/blog.html`.

@@ -17,7 +17,7 @@ final class Sanitizer
         'strong' => [], 'b' => [], 'em' => [], 'i' => [], 'u' => [], 's' => [], 'sub' => [], 'sup' => [], 'mark' => [],
         'a' => ['href', 'title', 'target', 'rel'], 'ul' => [], 'ol' => ['start'], 'li' => [],
         'blockquote' => ['cite'], 'pre' => [], 'code' => [], 'span' => [], 'div' => [],
-        'figure' => [], 'figcaption' => [], 'img' => ['src', 'alt', 'width', 'height', 'loading', 'title'],
+        'figure' => [], 'figcaption' => [], 'img' => ['src', 'alt', 'width', 'height', 'loading', 'title', 'data-media'],
         'table' => [], 'thead' => [], 'tbody' => [], 'tfoot' => [], 'tr' => [], 'th' => ['colspan', 'rowspan', 'scope'],
         'td' => ['colspan', 'rowspan'], 'caption' => [],
     ];

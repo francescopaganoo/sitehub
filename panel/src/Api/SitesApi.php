@@ -15,7 +15,7 @@ use Panel\Slug;
 final class SitesApi extends Api
 {
     /** Impostazioni del blog modificabili via API. */
-    private const BLOG_FIELDS = ['index_path', 'index_title', 'per_page', 'permalink', 'category_path'];
+    private const BLOG_FIELDS = ['index_path', 'index_title', 'per_page', 'permalink', 'category_path', 'image_ratio'];
 
     /** Categorie di cookie che richiedono consenso (i tecnici sono sempre ammessi). */
     public const COOKIE_CATEGORIES = ['statistics', 'marketing'];
@@ -114,6 +114,9 @@ final class SitesApi extends Api
         }
         if (array_key_exists('cookies', $in)) {
             $config['cookies'] = $this->validCookies($in['cookies'], $config['cookies'] ?? [], $errors);
+        }
+        if (($config['blog']['image_ratio'] ?? '') !== '' && !preg_match('~^[1-9]\d?:[1-9]\d?$~', $config['blog']['image_ratio'])) {
+            $errors['blog.image_ratio'] = 'Formato dell\'immagine in evidenza, es. "16:10"; vuoto = libero';
         }
         if (isset($config['blog']['permalink']) && !str_contains($config['blog']['permalink'], '{slug}')) {
             $errors['blog.permalink'] = 'Deve contenere {slug}';

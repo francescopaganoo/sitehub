@@ -14,6 +14,7 @@ use Panel\Http\Response;
  *   GET     /e/v1/{pk}.js       script da includere nel sito: config + moduli attivi
  *   POST    /e/v1/{pk}/submit   invio di un form
  *   GET     /e/v1/{pk}/guida.md guida su misura per chi realizza il sito (moduli attivi, chiave già inserita)
+ *   GET     /e/v1/{pk}/media/{id}/{larghezza}.webp  immagini del blog prima della pubblicazione (editor, anteprima)
  *
  * La chiave è pubblica: la sicurezza viene dai domini ammessi, dai moduli attivi e dall'antispam.
  */
@@ -24,7 +25,7 @@ final class Embed
     /** Moduli JS: file in panel/assets/embed/, inclusi solo se attivi sul sito. */
     private const MODULES = ['forms' => 'forms.js', 'cookies' => 'cookies.js'];
 
-    public function __construct(private Store $store, private FormService $forms)
+    public function __construct(private Store $store, private FormService $forms, private Media $media)
     {
     }
 
@@ -36,6 +37,9 @@ final class Embed
         if (preg_match('~^/(pk_[a-f0-9]+)/guida\.md$~', $path, $m) && in_array($req->method, ['GET', 'HEAD'], true)) {
             $site = $this->store->siteByKey($m[1]) ?? throw ApiError::notFound('Sito');
             return self::guide(Guide::forSite($site), "guida-{$site['slug']}.md");
+        }
+        if (preg_match('~^/(pk_[a-f0-9]+)/media/([a-f0-9]{12})/(\d{2,4}|master)\.webp$~', $path, $m) && in_array($req->method, ['GET', 'HEAD'], true)) {
+            return $this->media($m[1], $m[2], $m[3]);
         }
         if (preg_match('~^/(pk_[a-f0-9]+)/submit$~', $path, $m)) {
             return match ($req->method) {
@@ -56,6 +60,23 @@ final class Embed
             'Cache-Control'               => 'no-cache',
             'Access-Control-Allow-Origin' => '*',
         ]);
+    }
+
+    /** Un id non cambia mai contenuto: cache lunghissima. L'id è casuale, quindi le bozze non si indovinano. */
+    private function media(string $key, string $id, string $variant): Response
+    {
+        $site = $this->store->siteByKey($key) ?? throw ApiError::notFound('Immagine');
+        $file = $this->media->file($site['id'], $id, $variant) ?? throw ApiError::notFound('Immagine');
+        return new Response(200, (string) file_get_contents($file), [
+            'Content-Type'                => 'image/webp',
+            'Cache-Control'               => 'public, max-age=31536000, immutable',
+            'Access-Control-Allow-Origin' => '*',
+        ]);
+    }
+
+    public static function mediaUrl(string $publicKey, string $id, int|string $variant): string
+    {
+        return self::baseUrl() . '/e/' . self::VERSION . "/$publicKey/media/$id/$variant.webp";
     }
 
     public static function scriptUrl(string $publicKey): string
