@@ -3,3 +3,4 @@
 # database del pannello
 /panel/data/
 .DS_Store
+/editor/node_modules/
