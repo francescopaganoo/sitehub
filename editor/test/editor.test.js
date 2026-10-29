@@ -147,7 +147,15 @@ test('differenze, poi pubblicazione su main con versione di CSS aggiornata', asy
   const d = await api('GET', `/api/sessions/${session.id}/diff`);
   assert.match(d.body.diff, /\+39 333 123 4567/);
   fs.appendFileSync(path.join(tmp, 'data', 'work', session.id, 'style.css'), '\n/* modifica */\n');
-  const pub = await api('POST', `/api/sessions/${session.id}/publish`, { message: 'Nuovo numero di telefono', user: { name: 'Mario Rossi', email: 'mario@planstudios.it' } });
+  // il sito di prova è lo starter: segnaposto ovunque, si pubblica solo confermando
+  const check = await api('GET', `/api/sessions/${session.id}/check`);
+  assert.ok(check.body.placeholders.some((p) => p.what === 'dominio del sito' && p.file === 'index.html' && p.line > 0));
+  assert.ok(check.body.placeholders.every((p) => !p.file.startsWith('assets/')));
+  const refused = await api('POST', `/api/sessions/${session.id}/publish`, { message: 'x', user: { name: 'Mario Rossi' } });
+  assert.equal(refused.status, 409);
+  assert.equal(refused.body.code, 'placeholders');
+  assert.match(refused.body.message, /segnaposto/);
+  const pub = await api('POST', `/api/sessions/${session.id}/publish`, { message: 'Nuovo numero di telefono', ignorePlaceholders: true, user: { name: 'Mario Rossi', email: 'mario@planstudios.it' } });
   assert.equal(pub.status, 200, JSON.stringify(pub.body));
   const bare = path.join(remotes, 'Plan-Studios', 'sito-prova.git');
   assert.equal(sh(bare, 'log', '-1', '--format=%s|%an', 'main'), 'Nuovo numero di telefono|Mario Rossi');
@@ -159,7 +167,7 @@ test('differenze, poi pubblicazione su main con versione di CSS aggiornata', asy
 
 test('pubblicazione su un altro ramo, solo se richiesto', async () => {
   await chat(session.id, 'sostituisci «Servizio 1» con «Antennistica»');
-  const pub = await api('POST', `/api/sessions/${session.id}/publish`, { branch: 'prova-servizi', user: { name: 'Mario Rossi' } });
+  const pub = await api('POST', `/api/sessions/${session.id}/publish`, { branch: 'prova-servizi', ignorePlaceholders: true, user: { name: 'Mario Rossi' } });
   assert.equal(pub.body.branch, 'prova-servizi');
   const bare = path.join(remotes, 'Plan-Studios', 'sito-prova.git');
   assert.match(sh(bare, 'show', 'prova-servizi:index.html'), /Antennistica/);
@@ -192,7 +200,7 @@ test('annulla le modifiche non pubblicate', async () => {
 
 const bareProva = () => path.join(remotes, 'Plan-Studios', 'sito-prova.git');
 const historyOf = async () => (await api('GET', '/api/history?repo=Plan-Studios/sito-prova')).body.commits;
-const publishAs = (message) => api('POST', `/api/sessions/${session.id}/publish`, { message, user: { name: 'Mario Rossi', email: 'mario@planstudios.it' } });
+const publishAs = (message) => api('POST', `/api/sessions/${session.id}/publish`, { message, ignorePlaceholders: true, user: { name: 'Mario Rossi', email: 'mario@planstudios.it' } });
 
 test('storico: pubblicazioni dall\'editor riconosciute, articoli del blog a parte', async () => {
   // un articolo pubblicato da SiteHub direttamente sul repo
@@ -230,7 +238,7 @@ test('annulla una pubblicazione: si prepara nella sessione, va online solo pubbl
   assert.match(s.history.at(-1).text, /annullamento/);
   assert.equal((await api('POST', `/api/sessions/${session.id}/revert`, { sha: tel.sha })).status, 409, 'con modifiche in corso');
 
-  assert.equal((await api('POST', `/api/sessions/${session.id}/publish`, { user: { name: 'Mario Rossi', email: 'mario@planstudios.it' } })).status, 200);
+  assert.equal((await api('POST', `/api/sessions/${session.id}/publish`, { ignorePlaceholders: true, user: { name: 'Mario Rossi', email: 'mario@planstudios.it' } })).status, 200);
   assert.equal(sh(bareProva(), 'log', '-1', '--format=%s', 'main'), 'Annulla «Nuovo numero di telefono»');
   const index = sh(bareProva(), 'show', 'main:index.html');
   assert.match(index, /\+39 000 000 0000/);

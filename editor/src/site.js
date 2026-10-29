@@ -49,6 +49,39 @@ export async function stampVersions(root) {
   return changed;
 }
 
+/** Segnaposto dello starter e dei siti in lavorazione: se restano, il sito va online con dati finti. */
+const PLACEHOLDERS = [
+  ['dominio-cliente.it', 'dominio del sito'],
+  ['Nome Azienda', 'nome dell\'azienda'],
+  ['00000000000', 'partita IVA'],
+  ['000 000 0000', 'telefono'],
+  ['390000000000', 'numero WhatsApp'],
+  ['Via Esempio', 'indirizzo'],
+  ['script SiteHub: incolla', 'riga dello script di SiteHub'],
+  ['pk_DA_INSERIRE', 'chiave di SiteHub'],
+  ['Descrizione dell\'attività in 140-160', 'meta description'],
+  ['GG mese AAAA', 'data'],
+  ['Ragione sociale', 'ragione sociale'],
+  ['Descrizione della foto', 'testo alternativo delle foto'],
+  ['Una frase che dice cosa fa', 'testo della home'],
+];
+const CHECKED = /\.(html|xml|txt|json|webmanifest)$/;
+const SKIPPED = /^(blog\/|_sitehub\/content\/|assets\/)/;
+
+/** Segnaposto rimasti nel sito: [{file, line, what, text}] (al massimo 200). */
+export async function findPlaceholders(root) {
+  const found = [];
+  for (const file of (await walk(root)).filter((f) => CHECKED.test(f) && !SKIPPED.test(f))) {
+    const lines = (await fs.readFile(path.join(root, file), 'utf8')).split('\n');
+    lines.forEach((text, i) => {
+      for (const [needle, what] of PLACEHOLDERS) {
+        if (text.includes(needle) && found.length < 200) found.push({ file, line: i + 1, what, text: text.trim().slice(0, 160) });
+      }
+    });
+  }
+  return found;
+}
+
 /**
  * Sito nuovo: copia dello starter con la riga dello script di SiteHub già inserita (se il sito è registrato).
  * Testi, dati e grafica li sostituisce poi Claude a partire dal brief.

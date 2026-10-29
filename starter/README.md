@@ -39,15 +39,18 @@ Le regole complete sono nella guida: https://hub.planstudios.it/guida.md
    Poi i testi: titoli, "Servizio 1…4", descrizioni, `title` e `meta description` di ogni pagina, dati strutturati in `index.html`.
 3. **Grafica**: colori e font nelle variabili in cima a `style.css`. Per un altro font metti i file `.woff2` in `assets/fonts/`
    e aggiorna `@font-face` e il `preload` nelle pagine.
-4. **Immagini**: sostituisci i segnaposto SVG con WebP vere (logo, favicon, hero 1920×800, chi siamo, galleria, condivisione 1200×630)
-   e aggiorna nomi, `alt`, `width` e `height` nelle pagine. Galleria o WhatsApp non servono? Elimina le sezioni.
+4. **Immagini**: sostituisci i segnaposto SVG con WebP vere (logo, favicon, hero 1920×800, chi siamo, galleria)
+   e aggiorna nomi, `alt`, `width` e `height` nelle pagine. Due eccezioni, per compatibilità: `condivisione.jpg` (1200×630, JPG,
+   anteprima dei link su WhatsApp e social) e `apple-touch-icon.png` (180×180, PNG, icona su iPhone).
+   Per cambiare un'immagine in seguito usa un nome nuovo: le immagini restano in cache fino a 30 giorni.
+   Galleria o WhatsApp non servono? Elimina le sezioni.
 5. **Pagine in più**: una cartella per pagina (`servizi/index.html`), con lo stesso header e footer; aggiungile a menu e `sitemap.xml`.
 6. **SiteHub**: registra il sito dal gestionale, poi sostituisci il commento `<!-- script SiteHub … -->` in **tutte** le pagine
    e nei due template con la riga dello script del sito.
 7. **Blog**: la voce "Blog" di menu e footer (`data-ssg-modulo="blog" hidden`) si vede solo se il blog è attivo nel gestionale,
    quindi si può lasciare anche ai siti che per ora non ce l'hanno. Se il sito non avrà mai il blog, elimina `_sitehub/`, quella voce
-   e la riga `sitemap-blog.xml` in `robots.txt`. Se lo ha, dopo il primo deploy collega il blog dal gestionale
-   (pagina del sito → Blog → Collega il blog).
+   e la riga commentata di `sitemap-blog.xml` in `robots.txt`. Se lo ha, dopo il primo deploy collega il blog dal gestionale
+   (pagina del sito → Blog → Collega il blog) e togli il `#` dalla riga di `sitemap-blog.xml` in `robots.txt`.
 8. **Prima del commit**: `./versione.sh`, poi i controlli finali della guida (sezione 16). Repo su GitHub e app su Coolify.
 
 ## SEO (prima di andare online)

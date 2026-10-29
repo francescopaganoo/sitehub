@@ -162,11 +162,13 @@ Ogni pagina parte da questo schema. Testi, colori e contenuti cambiano; la strut
   <meta property="og:title" content="Titolo della pagina">
   <meta property="og:description" content="Descrizione breve.">
   <meta property="og:url" content="https://www.dominio-cliente.it/nome-pagina/">
-  <meta property="og:image" content="https://www.dominio-cliente.it/assets/img/condivisione.webp">
+  <meta property="og:image" content="https://www.dominio-cliente.it/assets/img/condivisione.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
 
   <link rel="icon" href="/assets/img/favicon.webp">
-  <link rel="apple-touch-icon" href="/assets/img/favicon.webp">
+  <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
   <link rel="preload" href="/assets/fonts/nome-font.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/style.css?v=1">
 </head>
@@ -256,8 +258,12 @@ Regole:
   Peso indicativo: sotto i 200 KB, sotto i 400 KB per le immagini grandi.
 - Ogni `<img>` ha **`alt`** (descrive l'immagine; vuoto `alt=""` solo se è decorativa) e **`width` e `height`** reali.
 - `loading="lazy"` su tutte le immagini **tranne** quelle visibili all'apertura della pagina (logo, prima immagine).
-- Favicon: `assets/img/favicon.webp`, quadrata, almeno 192×192 px.
-- Immagine per la condivisione sui social (og:image): 1200×630 px.
+- Favicon: `assets/img/favicon.webp` (o `.svg`), quadrata, almeno 192×192 px.
+  Più `assets/img/apple-touch-icon.png`, 180×180 px, **PNG**: iPhone e iPad non usano WebP o SVG per l'icona.
+- Immagine per la condivisione sui social (og:image): `assets/img/condivisione.jpg`, 1200×630 px, **JPG**.
+  WhatsApp, Facebook e LinkedIn non mostrano gli SVG e non sempre i WebP: con un altro formato il link condiviso resta senza anteprima.
+- **Per cambiare un'immagine usa un nome nuovo** (es. `logo-2.webp`) e aggiorna i riferimenti nelle pagine.
+  Le immagini in `assets/` restano nella cache dei visitatori fino a 30 giorni: con lo stesso nome, chi è già passato dal sito continua a vedere quella vecchia.
 - **Font**: file `.woff2` salvati in `assets/fonts/`, con `font-display: swap`.
   Mai Google Fonts o Adobe Fonts collegati: inviano i dati dei visitatori a terzi e richiedono consenso.
 - Icone: SVG nell'HTML o in `assets/icons/`. Niente Font Awesome o librerie di icone da CDN.
@@ -323,7 +329,7 @@ Gli stessi dati di nome, indirizzo e telefono del sito; gli orari se sono fissi.
   "name": "Nome dell'azienda",
   "url": "https://www.dominio-cliente.it/",
   "logo": "https://www.dominio-cliente.it/assets/img/logo.webp",
-  "image": "https://www.dominio-cliente.it/assets/img/condivisione.webp",
+  "image": "https://www.dominio-cliente.it/assets/img/condivisione.jpg",
   "telephone": "+39 000 000 0000",
   "email": "info@dominio-cliente.it",
   "address": {
@@ -668,6 +674,7 @@ usando due template HTML che crei tu, e le pubblica nel repo (commit + deploy au
    <li data-ssg-modulo="blog" hidden><a href="/blog/">Blog</a></li>
    ```
 4. In `robots.txt` la riga `Sitemap: https://www.dominio-cliente.it/sitemap-blog.xml` (sotto quella di `sitemap.xml`).
+   Nello starter c'è già, commentata: togli il `#` quando il blog è attivo.
 
 Indirizzi generati da SiteHub (non creare file in queste cartelle):
 - `/blog/` elenco, `/blog/page/2/` pagine successive
@@ -884,7 +891,7 @@ server {
 
     gzip on;
     gzip_min_length 1024;
-    gzip_types text/css application/javascript image/svg+xml text/plain;
+    gzip_types text/css application/javascript application/json application/xml text/xml image/svg+xml text/plain;
 
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
@@ -1012,6 +1019,8 @@ Prima di consegnare il sito:
 - [ ] `sitemap.xml` con tutte le pagine; `robots.txt` con il dominio giusto.
 - [ ] Il sito funziona a 375, 768, 1366 e 1920 px, senza scroll orizzontale.
 - [ ] Immagini in WebP, con `alt`, `width`, `height`; `loading="lazy"` sotto la prima schermata.
+- [ ] `condivisione.jpg` 1200×630 in `og:image` di ogni pagina; `apple-touch-icon.png` 180×180.
+- [ ] Nessun segnaposto rimasto (`dominio-cliente.it`, `Nome Azienda`, `00000000000`…): l'editor del gestionale lo controlla prima di pubblicare.
 - [ ] Font e immagini caricati solo dal sito (nessuna richiesta ad altri domini, tranne SiteHub e i servizi con consenso).
 - [ ] Menu mobile e form usabili da tastiera.
 - [ ] Script di SiteHub in tutte le pagine, identico, prima di `</body>`.

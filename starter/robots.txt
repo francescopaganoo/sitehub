@@ -2,4 +2,5 @@ User-agent: *
 Allow: /
 
 Sitemap: https://www.dominio-cliente.it/sitemap.xml
-Sitemap: https://www.dominio-cliente.it/sitemap-blog.xml
+# solo con il blog attivo (modulo Blog su SiteHub), altrimenti Search Console segnala un errore:
+# Sitemap: https://www.dominio-cliente.it/sitemap-blog.xml

@@ -7,12 +7,13 @@ import path from 'node:path';
 import { config, workDir, metaFile } from './config.js';
 import * as git from './git.js';
 import { runMessage, isSiteHubFile } from './agent.js';
-import { stampVersions, prepareFromStarter } from './site.js';
+import { stampVersions, prepareFromStarter, findPlaceholders } from './site.js';
 
 export class SessionError extends Error {
-  constructor(status, message) {
+  constructor(status, message, code) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -167,12 +168,24 @@ export async function diff(id) {
   return git.diff(workDir(id));
 }
 
+/** Segnaposto rimasti nel sito, da mostrare prima di pubblicare. */
+export async function check(id) {
+  await get(id);
+  return { placeholders: await findPlaceholders(workDir(id)) };
+}
+
 /** Pubblica: versione di CSS/JS aggiornata, commit, push (su main, o sul ramo indicato). */
-export async function publish(id, { message, branch, user }) {
+export async function publish(id, { message, branch, user, ignorePlaceholders }) {
   const meta = await get(id);
   if (running.has(id)) throw new SessionError(409, 'Aspetta che Claude finisca prima di pubblicare');
   const root = workDir(id);
   if (!(await git.changes(root)).length) throw new SessionError(409, 'Nessuna modifica da pubblicare');
+  // segnaposto dimenticati (dominio, nome, P.IVA finti…): si pubblica solo se chi pubblica lo conferma
+  const placeholders = await findPlaceholders(root);
+  if (placeholders.length && !ignorePlaceholders) {
+    const first = placeholders[0];
+    throw new SessionError(409, `Nel sito ci sono ancora ${placeholders.length} segnaposto da sostituire (es. ${first.what} in ${first.file}, riga ${first.line}). Controllali prima di pubblicare.`, 'placeholders');
+  }
   await stampVersions(root);
   const files = await git.changes(root);
   let sha;

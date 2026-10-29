@@ -12,7 +12,8 @@
 //   POST   /api/sessions/:id/stop                     interrompe Claude
 //   GET    /api/sessions/:id/changes                  file cambiati
 //   GET    /api/sessions/:id/diff                     differenze (testo)
-//   POST   /api/sessions/:id/publish                  {message, branch, user} → commit e push
+//   GET    /api/sessions/:id/check                    segnaposto rimasti (dominio, nome, P.IVA finti…)
+//   POST   /api/sessions/:id/publish                  {message, branch, user, ignorePlaceholders} → commit e push
 //   POST   /api/sessions/:id/discard                  annulla le modifiche non pubblicate
 //   POST   /api/sessions/:id/revert                   {sha, subject, user} → prepara l'annullamento di una pubblicazione
 //   PUT    /api/sessions/:id/files?path=assets/…      carica un'immagine (corpo della richiesta = file)
@@ -148,6 +149,7 @@ async function route(req, res) {
       case 'POST /stop': return json(res, 200, { stopped: sessions.stop(id) });
       case 'GET /changes': return json(res, 200, { files: await sessions.changes(id) });
       case 'GET /diff': return json(res, 200, { diff: await sessions.diff(id) });
+      case 'GET /check': return json(res, 200, await sessions.check(id));
       case 'POST /publish': return json(res, 200, await sessions.publish(id, await readJson(req)));
       case 'POST /discard': await sessions.discard(id); return json(res, 200, { files: [] });
       case 'POST /revert': return json(res, 200, await sessions.revert(id, await readJson(req)));
@@ -162,7 +164,7 @@ const server = http.createServer((req, res) => {
   route(req, res).catch((e) => {
     if (!(e instanceof sessions.SessionError)) console.error(e);
     if (res.headersSent) return res.end();
-    json(res, e.status || 500, { message: e instanceof sessions.SessionError ? e.message : 'Errore interno dell\'editor' });
+    json(res, e.status || 500, e instanceof sessions.SessionError ? { message: e.message, code: e.code } : { message: 'Errore interno dell\'editor' });
   });
 });
 server.requestTimeout = 0; // le risposte della chat possono durare minuti
