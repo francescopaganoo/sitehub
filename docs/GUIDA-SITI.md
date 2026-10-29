@@ -257,7 +257,15 @@ Regole:
 - Dimensioni giuste per l'uso: immagine a tutta larghezza al massimo 1920 px; foto nelle card 800 px circa.
   Peso indicativo: sotto i 200 KB, sotto i 400 KB per le immagini grandi.
 - Ogni `<img>` ha **`alt`** (descrive l'immagine; vuoto `alt=""` solo se è decorativa) e **`width` e `height`** reali.
-- `loading="lazy"` su tutte le immagini **tranne** quelle visibili all'apertura della pagina (logo, prima immagine).
+- `loading="lazy"` su tutte le immagini **tranne** quelle visibili all'apertura della pagina (logo, prima immagine),
+  **anche su telefono**: se su mobile la prima cosa grande che si vede è, per esempio, la prima card dei servizi, quella non è `lazy`.
+- **Immagini grandi in più misure** con `srcset` e `sizes`: il telefono scarica quella piccola, lo schermo grande quella grande.
+  ```html
+  <img src="/assets/img/banner.webp" srcset="/assets/img/banner-720.webp 720w, /assets/img/banner.webp 1440w"
+       sizes="(max-width: 1440px) 100vw, 1440px" alt="…" width="1440" height="480" fetchpriority="high">
+  ```
+- Logo e icone al massimo il **doppio** della larghezza a cui si vedono (logo largo 210 px nel CSS → file da 420 px).
+- Qualità WebP intorno a **75-80**: oltre non si vede la differenza, ma il file pesa molto di più.
 - Favicon: `assets/img/favicon.webp` (o `.svg`), quadrata, almeno 192×192 px.
   Più `assets/img/apple-touch-icon.png`, 180×180 px, **PNG**: iPhone e iPad non usano WebP o SVG per l'icona.
 - Immagine per la condivisione sui social (og:image): `assets/img/condivisione.jpg`, 1200×630 px, **JPG**.
@@ -381,7 +389,10 @@ Sitemap: https://www.dominio-cliente.it/sitemap-blog.xml
 
 ### Velocità (Core Web Vitals)
 
-- L'immagine principale in alto (hero) **non** ha `loading="lazy"`; se possibile `fetchpriority="high"`.
+- L'immagine principale in alto (hero) **non** ha `loading="lazy"` e ha `fetchpriority="high"`. Vale per la prima immagine grande
+  che si vede **sia da computer sia da telefono** (su mobile può essere un'altra: controlla "Largest Contentful Paint" su PageSpeed).
+- Se l'immagine principale è uno **sfondo CSS** (`background-image`), il browser la scopre tardi: aggiungi nel `<head>`
+  `<link rel="preload" href="/assets/img/hero.webp" as="image" fetchpriority="high">`.
 - Tutte le immagini con `width` e `height`: la pagina non "salta" mentre si carica.
 - Font: al massimo 2-3 file `.woff2`, con `font-display: swap` e il `preload` del principale.
 - Niente librerie o script pesanti; `script.js` con `defer`.
@@ -862,21 +873,33 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY . /usr/share/nginx/html/
 # la configurazione e i file di SiteHub (template, copia degli articoli) non devono essere pubblici
 RUN rm -rf /usr/share/nginx/html/nginx.conf /usr/share/nginx/html/_sitehub
+# impronte di style.css e script.js (come versione.sh): CSS e JS con la versione giusta restano in cache un anno (nginx.conf)
+RUN cd /usr/share/nginx/html \
+ && css=$(sha1sum style.css 2>/dev/null | cut -c1-8) \
+ && js=$(sha1sum script.js 2>/dev/null | cut -c1-8) \
+ && sed -i "s/VERSIONE_CSS/${css:-nessuna}/; s/VERSIONE_JS/${js:-nessuna}/" /etc/nginx/conf.d/default.conf
 ```
 
 **`nginx.conf`**: pagina 404, cache, compressione e intestazioni di sicurezza.
 Il sito funziona anche senza (una cartella per pagina), qui ci sono solo gli extra.
 
 ```nginx
-# pagine HTML, style.css e script.js: browser e Cloudflare verificano sempre se sono cambiati (304 se uguali).
-# La versione nell'indirizzo (?v=) da sola non basta: durante un deploy la vecchia copia del sito può ancora
-# rispondere e farebbe restare in cache, per ore, il CSS vecchio al nuovo indirizzo.
-# Immagini e font in /assets/ hanno la loro cache lunga.
+# pagine HTML, e CSS e JS senza la versione giusta: browser e Cloudflare verificano sempre se sono cambiati
+# (risposta 304 se uguali). Immagini e font in /assets/ hanno la loro cache lunga.
 map $sent_http_content_type $html_cache {
     ~text/html              "no-cache";
     ~text/css               "no-cache";
     ~javascript             "no-cache";
     default                 "";
+}
+
+# style.css e script.js con la versione giusta nell'indirizzo (?v= uguale all'impronta del file): cache di un anno.
+# Le impronte le scrive il Dockerfile a ogni deploy. Con una versione diversa (es. la copia vecchia del sito che
+# risponde ancora durante un deploy) niente cache lunga: così il CSS vecchio non resta mai al nuovo indirizzo.
+map "$uri?$arg_v" $cache_control {
+    "/style.css?VERSIONE_CSS"   "public, max-age=31536000, immutable";
+    "/script.js?VERSIONE_JS"    "public, max-age=31536000, immutable";
+    default                     $html_cache;
 }
 
 server {
@@ -896,7 +919,7 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header Cache-Control $html_cache always;
+    add_header Cache-Control $cache_control always;
 
     # immagini, font, CSS e JS: cache lunga
     location /assets/ {
@@ -966,6 +989,8 @@ echo "style.css?v=$css  script.js?v=$js"
 1. Repo su GitHub (uno per sito), ramo `main`.
 2. Coolify: nuova applicazione dal repo, build pack **Dockerfile**, porta **80**, dominio del cliente (con e senza `www`).
 3. Verifica che **Auto Deploy** sia attivo: ogni push su `main` (e ogni articolo pubblicato da SiteHub) va online da solo.
+   Se il dominio passa da **Cloudflare**: *Caching → Configuration → Browser Cache TTL* su **Respect Existing Headers**
+   (altrimenti Cloudflare cambia le regole di cache del sito) e **Web Analytics** spento se non lo si usa (aggiunge uno script esterno).
 <!-- se:generica -->
 4. Registra il sito su SiteHub dal gestionale e inserisci lo script con la chiave (sezione 12).
 <!-- /se -->
