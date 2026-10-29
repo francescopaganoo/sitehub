@@ -861,10 +861,15 @@ RUN rm -rf /usr/share/nginx/html/nginx.conf /usr/share/nginx/html/_sitehub
 Il sito funziona anche senza (una cartella per pagina), qui ci sono solo gli extra.
 
 ```nginx
-# pagine HTML: il browser verifica sempre se sono cambiate (CSS e JS hanno la versione nell'indirizzo)
+# pagine HTML, style.css e script.js: browser e Cloudflare verificano sempre se sono cambiati (304 se uguali).
+# La versione nell'indirizzo (?v=) da sola non basta: durante un deploy la vecchia copia del sito può ancora
+# rispondere e farebbe restare in cache, per ore, il CSS vecchio al nuovo indirizzo.
+# Immagini e font in /assets/ hanno la loro cache lunga.
 map $sent_http_content_type $html_cache {
-    ~text/html "no-cache";
-    default    "";
+    ~text/html              "no-cache";
+    ~text/css               "no-cache";
+    ~javascript             "no-cache";
+    default                 "";
 }
 
 server {
