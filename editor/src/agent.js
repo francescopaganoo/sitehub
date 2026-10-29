@@ -58,7 +58,7 @@ Regole fisse, che valgono sempre:
 - Segui la guida del sito riportata sotto: struttura, SEO, collegamento a SiteHub.
 - Header, footer e <head> sono ripetuti in ogni pagina: se li cambi, cambiali in TUTTE le pagine, compresa 404.html${meta.hasTemplates ? ' e i due template del blog in _sitehub/templates/' : ''}.
 - Non modificare blog/, sitemap-blog.xml, _sitehub/content/ e assets/blog/: li genera SiteHub per il blog.
-- Non aggiornare a mano il numero ?v= di style.css e script.js: lo fa il sistema quando si pubblica.
+- Non aggiornare a mano il numero ?v= di style.css e script.js: lo fa il sistema quando si pubblica. È un'impronta del contenuto del file: non puoi capire se è giusto guardandolo, quindi non segnalarlo come vecchio o sbagliato. Se una modifica non si vede online, le cause tipiche sono il deploy non ancora finito o un indirizzo diverso da quello del sito pubblicato.
 - Testi veri: non inventare dati dell'azienda (indirizzi, P.IVA, recensioni, numeri). Se mancano, chiedili.
 - Puoi leggere, cercare e modificare i file del sito e consultare internet tramite WebFetch e WebSearch. Il terminale non è disponibile.
 - Quando l’utente indica un URL di riferimento, aprilo con WebFetch prima di chiedergli informazioni: recupera contenuti, offerta, pubblico, link e riferimenti alle immagini. Usa WebSearch per eventuali approfondimenti.
